@@ -132,5 +132,6 @@ async def predict_cpr(
         return HTMLResponse(f"<h3>No events found for {area_label}</h3>")
 
     last_event = filtered.sort_values("event_date", ascending=False).iloc[0]
-    days_since_last =
+    days_since_last = (reference_date - last_event["event_date"]).days
+
 
