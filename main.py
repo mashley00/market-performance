@@ -1,109 +1,82 @@
-import logging
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
 import pandas as pd
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from fuzzywuzzy import fuzz
-from typing import Optional
+import logging
 
-app = FastAPI()
-
-# Logging setup
+# Setup
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("MarketPerformance")
 
-# Load dataset (city-level only for now)
+app = FastAPI()
+templates = Jinja2Templates(directory="static")
+
+# Load and preprocess dataset
 try:
-    df_url = "https://acquireup-venue-data.s3.us-east-2.amazonaws.com/all_events_23_25.csv"
-    df = pd.read_csv(df_url)
+    df = pd.read_csv("static/all_events_23_25.csv")
     df.columns = df.columns.str.lower().str.replace(" ", "_").str.replace(r"[^\w\s]", "", regex=True)
-    df["city"] = df["city"].str.strip().str.lower()
-    df["state"] = df["state"].str.strip().str.upper()
+
+    df["event_date"] = pd.to_datetime(df["event_date"], errors="coerce")
+    df["city"] = df["city"].astype(str).str.strip().str.lower()
+    df["state"] = df["state"].astype(str).str.strip().str.upper()
+    df["topic"] = df["topic"].astype(str).str.strip().str.lower()
+
     logger.info(f"Loaded dataset: {df.shape}")
 except Exception as e:
     logger.error("Error loading dataset.")
     raise e
 
-# Match helper
-def fuzzy_city_match(input_city, state):
-    input_city = input_city.lower()
-    state_df = df[df["state"] == state.upper()]
-    city_scores = state_df["city"].dropna().unique()
-    best_match = max(city_scores, key=lambda x: fuzz.partial_ratio(x, input_city))
-    return best_match
 
-# Models
-class MarketRequest(BaseModel):
-    city: str
-    state: str
+def fuzzy_city_match(user_city, state):
+    user_city = user_city.lower()
+    candidates = df[df["state"] == state.upper()]["city"].unique()
+    best_match = max(candidates, key=lambda x: fuzz.ratio(x.lower(), user_city))
+    if fuzz.ratio(user_city, best_match) >= 75:
+        return best_match
+    return None
 
-class PredictRequest(BaseModel):
-    city: str
-    state: str
-    topic: str
-    event_date: Optional[str] = None  # ISO format
-
-@app.get("/", response_class=HTMLResponse)
-def root():
-    return "<h2>Welcome to Market Performance API</h2>"
 
 @app.get("/market.html", response_class=HTMLResponse)
-def get_market_html():
-    return open("static/market.html").read()
+async def get_market_form(request: Request):
+    return templates.TemplateResponse("market_form.html", {"request": request})
 
-@app.get("/predict.html", response_class=HTMLResponse)
-def get_predict_html():
-    return open("static/predict.html").read()
 
-@app.post("/market")
-def market_health(request: MarketRequest):
-    city = fuzzy_city_match(request.city, request.state)
-    city_data = df[(df["city"] == city) & (df["state"] == request.state.upper())]
+@app.post("/market", response_class=HTMLResponse)
+async def run_market_form(request: Request):
+    form = await request.form()
+    city = form.get("city", "").strip().lower()
+    state = form.get("state", "").strip().upper()
+    topic = form.get("topic", "").strip().lower()
 
-    if city_data.empty:
-        raise HTTPException(status_code=404, detail="No data found for this market.")
+    matched_city = fuzzy_city_match(city, state)
+    if not matched_city:
+        return templates.TemplateResponse("market_results.html", {
+            "request": request,
+            "error": f"No match found for city '{city.title()}', state '{state}'"
+        })
 
-    # Placeholder logic
-    decay = 0.28
-    recovery_rate = {"TIR": 0.16, "SS": 0.12, "EP": 0.14}
-    soonest_recovery = "3 weeks (estimated)"
+    subset = df[(df["city"] == matched_city) & (df["state"] == state) & (df["topic"] == topic)]
+    if subset.empty:
+        return templates.TemplateResponse("market_results.html", {
+            "request": request,
+            "error": f"No events found for {matched_city.title()}, {state} for topic {topic.upper()}."
+        })
 
-    return {
-        "market": f"{city.title()}, {request.state.upper()}",
-        "events": len(city_data),
-        "topics": city_data["seminar_topic"].value_counts().to_dict(),
-        "decay_level": decay,
-        "recovery_rate": recovery_rate,
-        "projected_cpr_under_60": soonest_recovery,
+    summary = {
+        "city": matched_city.title(),
+        "state": state,
+        "topic": topic.upper(),
+        "events": len(subset),
+        "avg_cpr": round(subset["cpr"].mean(), 2),
+        "avg_cpa": round(subset["cost_per_verified_hh"].mean(), 2),
+        "avg_att_rate": round((subset["attended_hh"].sum() / subset["gross_registrants"].sum()) * 100, 1)
     }
 
-@app.post("/predict")
-def predict_performance(request: PredictRequest):
-    city = fuzzy_city_match(request.city, request.state)
-    topic = request.topic.upper()
-    filtered = df[(df["city"] == city) & (df["state"] == request.state.upper()) & (df["seminar_topic"] == topic)]
-
-    if filtered.empty:
-        raise HTTPException(status_code=404, detail="No events found for this topic/market.")
-
-    latest = filtered.sort_values("event_date", ascending=False).iloc[0]
-    predicted_cpr = filtered["cpr"].mean()
-    predicted_regs = filtered["gross_registrants"].mean()
-    days_since = (pd.Timestamp.now() - pd.to_datetime(latest["event_date"])).days
-
-    return {
-        "venue": latest["venue"],
-        "market": f"{city.title()}, {request.state.upper()}",
-        "topic": topic,
-        "event_date": request.event_date or "N/A",
-        "days_since_last_use": days_since,
-        "predicted_registrants": round(predicted_regs),
-        "predicted_cpr": round(predicted_cpr, 2),
-    }
-
-# Static assets
-app.mount("/static", StaticFiles(directory="static"), name="static")
+    return templates.TemplateResponse("market_results.html", {
+        "request": request,
+        "summary": summary
+    })
 
 
 
