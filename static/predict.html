@@ -1,58 +1,59 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>CPR Predictor</title>
+  <title>Predict CPR</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <header>
-    <img src="/static/logo.png" alt="AcquireUp Logo" style="height: 40px; vertical-align: middle;">
-    <nav>
-      <a href="/static/vor-form.html">📍 VOR</a>
-      <a href="/static/market.html">📊 Market Health</a>
-      <a href="/static/predict.html">📈 Predict CPR</a>
-    </nav>
-  </header>
+  <div class="navbar">
+    <a href="/">🏠 Home</a>
+    <a href="/market.html">Market Health</a>
+    <a href="/predict.html" class="active">Predict CPR</a>
+    <a href="https://venue-webhook-2.onrender.com">VOR Tool</a>
+  </div>
 
-  <main>
-    <h2>📈 CPR Projection Tool</h2>
-    <form id="cprForm">
-      <label>Impressions</label>
-      <input type="number" name="impressions" value="10000"><br>
+  <div class="container">
+    <h2>🔮 CPR Projection Tool</h2>
+    <form id="predict-form" method="get" action="/predict-cpr" target="_blank">
+      <label>Impressions:</label>
+      <input type="number" name="impressions" id="impressions" required><br>
 
-      <label>Reach</label>
-      <input type="number" name="reach" value="8000"><br>
+      <label>Reach:</label>
+      <input type="number" name="reach" id="reach" required><br>
 
-      <label>Facebook Registrants</label>
-      <input type="number" name="fb_reg" value="50"><br>
+      <label>Facebook Registrants:</label>
+      <input type="number" name="fb_reg" id="fb_reg" required><br>
 
-      <label>Facebook Days Running</label>
-      <input type="number" name="fb_days" value="7"><br>
+      <label>Facebook Campaign Days:</label>
+      <input type="number" name="fb_days" id="fb_days" value="14" required><br>
 
-      <button type="submit" class="green-btn">📊 Predict CPR</button>
+      <button type="submit">🚀 Predict</button>
     </form>
 
-    <div id="results" style="margin-top: 2rem;"></div>
+    <p id="auto-status" style="font-size: 0.9em; color: green;"></p>
+  </div>
 
-    <script>
-      document.getElementById("cprForm").addEventListener("submit", async function (e) {
-        e.preventDefault();
-        const form = e.target;
-        const params = new URLSearchParams(new FormData(form)).toString();
-        const res = await fetch(`/predict-cpr?${params}`);
+  <script>
+    async function autofillFBData() {
+      try {
+        const res = await fetch('/fb-insights');
+        if (!res.ok) throw new Error("Failed to fetch");
         const data = await res.json();
 
-        const output = `
-          <h3>📋 Results:</h3>
-          <p><strong>📈 Projected 14-Day Registrants:</strong> ${data["14_day_projection_from_fb"]}</p>
-          <p><strong>💰 Registrants per Impression:</strong> ${data["registrants_per_impression"]}</p>
-          <p><strong>📣 Registrants per Reach:</strong> ${data["registrants_per_reach"]}</p>
-        `;
-        document.getElementById("results").innerHTML = output;
-      });
-    </script>
-  </main>
+        document.getElementById("impressions").value = data.impressions;
+        document.getElementById("reach").value = data.reach;
+        document.getElementById("fb_reg").value = data.registrations;
+        document.getElementById("fb_days").value = data.fb_days;
+        document.getElementById("auto-status").innerText = "✅ Auto-filled from FB (last 14 days)";
+      } catch {
+        document.getElementById("auto-status").innerText = "⚠️ Could not auto-fill from FB";
+      }
+    }
+
+    autofillFBData();
+  </script>
 </body>
 </html>
+
 
 
