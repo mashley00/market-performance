@@ -1,17 +1,18 @@
-from datetime import datetime, timedelta
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Union, Optional
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from typing import Optional
 import pandas as pd
 import logging
+from datetime import datetime, timedelta
 from fuzzywuzzy import fuzz
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("MarketPerformance")
 
-app = FastAPI(title="Market Health and CPR Prediction")
+app = FastAPI(title="Market Performance API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,12 +26,9 @@ CSV_URL = "https://acquireup-venue-data.s3.us-east-2.amazonaws.com/all_events_23
 try:
     df = pd.read_csv(CSV_URL, encoding="utf-8")
     df.columns = df.columns.str.lower().str.replace(" ", "_").str.replace(r"[^\w\s]", "", regex=True)
-    df["event_date"] = pd.to_datetime(df["event_date"], errors="coerce")
-    df["event_day"] = df["event_date"].dt.day_name()
-    df["event_time"] = df["event_time"].astype(str).str.strip()
-    if "zip_code" not in df.columns:
-        df["zip_code"] = ""
-    df["zip_code"] = df["zip_code"].fillna("").astype(str).str.strip().str.zfill(5)
+    df['event_date'] = pd.to_datetime(df['event_date'], errors='coerce')
+    df['event_day'] = df['event_date'].dt.day_name()
+    df['zip_code'] = df['zip_code'].fillna('').astype(str).str.strip().str.zfill(5)
     logger.info(f"Loaded dataset: {df.shape}")
 except Exception as e:
     logger.exception("Error loading dataset.")
@@ -41,6 +39,124 @@ TOPIC_MAP = {
     "EP": "estate_planning_567",
     "SS": "social_security_567"
 }
+
+def is_true(val):
+    return str(val).strip().upper() == "TRUE"
+
+def get_similar_cities(input_city, state, threshold=75):
+    candidates = df[df['state'].str.upper() == state.upper()]['city'].dropna().unique()
+    input_norm = input_city.strip().lower()
+    matches = [
+        city for city in candidates
+        if fuzz.token_set_ratio(city.lower(), input_norm) >= threshold
+    ]
+    return list(set(matches))
+
+@app.get("/market-health", response_class=HTMLResponse)
+async def market_health(zip: Optional[str] = None, city: Optional[str] = None, state: Optional[str] = None, topic: Optional[str] = None):
+    if not topic:
+        return HTMLResponse("<p>⚠️ Topic is required.</p>")
+    topic_full = TOPIC_MAP.get(topic.upper())
+    if not topic_full:
+        raise HTTPException(status_code=400, detail="Invalid topic code.")
+
+    if zip:
+        zip_str = zip.strip().zfill(5)
+        region_df = df[(df['zip_code'] == zip_str) & (df['topic'] == topic_full)]
+    elif city and state:
+        matches = get_similar_cities(city, state)
+        region_df = df[(df['city'].str.lower().isin([m.lower() for m in matches])) & (df['state'].str.upper() == state.upper()) & (df['topic'] == topic_full)]
+    else:
+        return HTMLResponse("<p>⚠️ Please provide either ZIP code or City + State.</p>")
+
+    if region_df.empty:
+        return HTMLResponse("<p>No matching events found for this market/topic.</p>")
+
+    last_event = region_df.sort_values('event_date', ascending=False).iloc[0]
+    last_cpr = last_event.get("fb_cpr", 0)
+    last_date = last_event['event_date']
+    days_since = (pd.Timestamp.today() - last_date).days
+
+    decay = round(min(days_since / 60, 1.0), 2)
+    recovery_rate = round(min(days_since / 90, 1.0), 2)
+
+    soonest_window = 45 if last_cpr < 60 else int(days_since + (60 - days_since) / 2)
+
+    html = f"""
+    <h2>📍 Market Health Overview – {city or zip}, {state}</h2>
+    <ul>
+      <li><b>Topic:</b> {topic.upper()}</li>
+      <li><b>Most Recent Event:</b> {last_date.strftime('%Y-%m-%d')}</li>
+      <li><b>Days Since Last:</b> {days_since} days</li>
+      <li><b>Current CPR:</b> ${round(last_cpr, 2)}</li>
+      <li><b>Decay Level:</b> {int(decay * 100)}%</li>
+      <li><b>Recovery Rate:</b> {int(recovery_rate * 100)}%</li>
+      <li><b>📅 Projected Recovery:</b> In ~{soonest_window} days can reach &lt;$60 CPR with 50+ regs</li>
+    </ul>
+    """
+    return HTMLResponse(html)
+
+@app.get("/predict-cpr", response_class=HTMLResponse)
+async def predict_cpr(zip: Optional[str] = None, city: Optional[str] = None, state: Optional[str] = None, topic: Optional[str] = None):
+    topic_key = topic.upper() if topic else None
+    topic_full = TOPIC_MAP.get(topic_key)
+
+    if zip:
+        zip_str = zip.strip().zfill(5)
+        region_df = df[(df['zip_code'] == zip_str) & (df['topic'] == topic_full)]
+    elif city and state:
+        matches = get_similar_cities(city, state)
+        region_df = df[(df['city'].str.lower().isin([m.lower() for m in matches])) & (df['state'].str.upper() == state.upper()) & (df['topic'] == topic_full)]
+    else:
+        return HTMLResponse("<p>⚠️ Must provide ZIP or City/State.</p>")
+
+    if region_df.empty:
+        return HTMLResponse("<p>❌ No events found for this area/topic.</p>")
+
+    last_event = region_df.sort_values("event_date", ascending=False).iloc[0]
+    last_date = last_event["event_date"]
+    last_cpr = last_event["fb_cpr"]
+    days_since = (pd.Timestamp.today() - last_date).days
+
+    fatigue_penalty = len(region_df[region_df['event_date'] > pd.Timestamp.today() - pd.Timedelta(days=30)]) * 0.1
+    rest_boost = min(days_since / 30, 1.0) * 0.2
+    delta = rest_boost - fatigue_penalty
+    topic_factor = {"EP": 0.9, "SS": 0.85, "TIR": 1.15}.get(topic_key, 1.0)
+    predicted_cpr = last_cpr * (1 + delta) * topic_factor
+
+    # Media Efficiency
+    impressions = region_df["fb_impressions"].sum()
+    registrants = region_df["fb_registrants"].sum()
+    reach = region_df["fb_reach"].sum()
+    frequency = impressions / reach if reach else float("inf")
+    regs_per_1k = (registrants / impressions * 1000) if impressions else 0
+    avg_cpm = region_df["fb_cpm"].mean()
+    avg_cvr = (registrants / reach * 100) if reach else 0
+
+    html = f"""
+    <h2>📍 CPR Prediction – {city or zip}, {state} ({topic})</h2>
+    <ul>
+      <li><b>Last Used:</b> {last_date.strftime('%Y-%m-%d')}</li>
+      <li><b>Days Since:</b> {days_since} days</li>
+      <li><b>Last Known CPR:</b> ${round(last_cpr, 2)}</li>
+      <li><b>Predicted CPR:</b> ${round(predicted_cpr, 2)} ({'📉 Lower' if delta < 0 else '📈 Higher'})</li>
+    </ul>
+    <h3>📊 Media Efficiency Overlay</h3>
+    <ul>
+      <li>Avg. CPM: ${round(avg_cpm, 2)}</li>
+      <li>CVR: {round(avg_cvr, 1)}%</li>
+      <li>Regs / 1k Impressions: {round(regs_per_1k, 1)}</li>
+      <li>Media-Driven CPR: ${round(avg_cpm / (avg_cvr / 100), 2) if avg_cvr else '∞'}</li>
+      <li>Frequency: {round(frequency, 1)}</li>
+    </ul>
+    <h4>🧠 Interpretation:</h4>
+    <p>Your predicted CPR includes decay adjustments based on venue recency.<br>
+    Historically, media-driven CPR in this market is ${round(last_cpr, 2)}, indicating efficiency if creative and targeting are on point.</p>
+
+    <h4>📈 Budget Simulation:</h4>
+    <p>With a $1,200 budget over 14 days, expect ~{int(1200 / predicted_cpr)} registrants based on historical CPM and CVR.</p>
+    """
+    return HTMLResponse(html)
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
@@ -54,101 +170,6 @@ async def serve_predict():
     with open("static/predict.html", "r") as f:
         return HTMLResponse(content=f.read(), status_code=200)
 
-@app.get("/market-health", response_class=HTMLResponse)
-async def market_health(zip: Optional[str] = None, city: Optional[str] = None, state: Optional[str] = None, topic: Optional[str] = None):
-    ref_date = pd.Timestamp.today()
-    topic_full = TOPIC_MAP.get(topic.upper()) if topic else None
-    result = df.copy()
-
-    if topic_full:
-        result = result[result['topic'] == topic_full]
-
-    if zip:
-        zip_code = str(zip).strip().zfill(5)
-        result = result[result['zip_code'] == zip_code]
-        area_label = f"ZIP Code {zip_code}"
-    elif city and state:
-        city_lower = city.strip().lower()
-        state_upper = state.strip().upper()
-        matches = [c for c in df[df['state'].str.upper() == state_upper]['city'].dropna().unique()
-                   if fuzz.token_set_ratio(c.lower(), city_lower) >= 75]
-        result = result[result['city'].str.lower().isin([m.lower() for m in matches]) & (result['state'].str.upper() == state_upper)]
-        area_label = f"{', '.join(matches)} in {state_upper}"
-    else:
-        return HTMLResponse("<h3>Error: Please provide either a ZIP or City and State.</h3>", status_code=400)
-
-    if result.empty:
-        return HTMLResponse(f"<h3>No events found for {area_label}</h3>", status_code=404)
-
-    recent = result[result['event_date'] >= ref_date - timedelta(days=30)]
-    summary = result.groupby('topic').agg({
-        'fb_cpr': 'mean',
-        'gross_registrants': 'mean',
-        'attended_hh': 'mean'
-    }).reset_index()
-
-    html = f"<h2>📊 Market Summary for {area_label}</h2>"
-    html += f"<p>Total Events in Last 30 Days: {len(recent)}</p>"
-    html += "<table border='1'><tr><th>Topic</th><th>Avg CPR</th><th>Avg Registrants</th><th>Avg Attendance</th></tr>"
-    for _, row in summary.iterrows():
-        html += f"<tr><td>{row['topic']}</td><td>${row['fb_cpr']:.2f}</td><td>{row['gross_registrants']:.1f}</td><td>{row['attended_hh']:.1f}</td></tr>"
-    html += "</table>"
-    return HTMLResponse(html)
-
-@app.get("/predict-cpr", response_class=HTMLResponse)
-async def predict_cpr(zip: Optional[str] = None, city: Optional[str] = None, state: Optional[str] = None, topic: Optional[str] = None):
-    ref_date = pd.Timestamp.today()
-    topic_upper = topic.upper() if topic else None
-    topic_full = TOPIC_MAP.get(topic_upper) if topic_upper else None
-
-    result = df.copy()
-    if topic_full:
-        result = result[result['topic'] == topic_full]
-
-    if zip:
-        zip_code = str(zip).strip().zfill(5)
-        result = result[result['zip_code'] == zip_code]
-        area_label = f"ZIP Code {zip_code}"
-    elif city and state:
-        city_lower = city.strip().lower()
-        state_upper = state.strip().upper()
-        matches = [c for c in df[df['state'].str.upper() == state_upper]['city'].dropna().unique()
-                   if fuzz.token_set_ratio(c.lower(), city_lower) >= 75]
-        result = result[result['city'].str.lower().isin([m.lower() for m in matches]) & (result['state'].str.upper() == state_upper)]
-        area_label = f"{', '.join(matches)} in {state_upper}"
-    else:
-        return HTMLResponse("<h3>Error: Please provide either a ZIP or City and State.</h3>", status_code=400)
-
-    if result.empty:
-        return HTMLResponse(f"<h3>No events found for {area_label}</h3>", status_code=404)
-
-    recent = result.sort_values(by="event_date", ascending=False).iloc[0]
-    last_date = recent["event_date"]
-    last_cpr = recent["fb_cpr"]
-    days_since_last = (ref_date - last_date).days
-    count_30 = len(result[result["event_date"] >= ref_date - timedelta(days=30)])
-
-    fatigue_penalty = count_30 * 0.1
-    rest_boost = min(days_since_last / 30, 1.0) * 0.2
-    topic_factor = {"EP": 0.9, "SS": 0.85, "TIR": 1.15}.get(topic_upper, 1.0) if topic else 1.0
-
-    delta = rest_boost - fatigue_penalty
-    predicted_cpr = last_cpr * (1 + delta) * topic_factor
-
-    trend_icon = "📉" if delta < 0 else "📈"
-    trend_text = "Expected to decrease" if delta < 0 else "Expected to increase"
-
-    html = f"""
-    <h2>Predicted CPR for {area_label}</h2>
-    <p><b>Topic:</b> {topic or 'All Topics'}</p>
-    <p><b>Most Recent Event:</b> {last_date.strftime('%Y-%m-%d')}</p>
-    <p><b>Days Since Last Event:</b> {days_since_last} days</p>
-    <p><b>Events in Last 30 Days:</b> {count_30}</p>
-    <p><b>Last Known CPR:</b> ${round(last_cpr, 2)}</p>
-    <h3>{trend_icon} Predicted CPR: ${round(predicted_cpr, 2)}</h3>
-    <p>{trend_text} by approx. {round(delta * 100, 1)}%</p>
-    """
-    return HTMLResponse(html)
 
 
 
