@@ -1,66 +1,60 @@
+
 body {
-  font-family: Arial, sans-serif;
-  background-color: #f6f7fb;
-  padding: 20px;
-  margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 40px;
+    background-color: #fafafa;
+    color: #222;
 }
-
-header {
-  background-color: #ffffff;
-  padding: 10px 20px;
-  border-bottom: 2px solid #e0e0e0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+h1, h2, h3 {
+    color: #111;
 }
-
+nav {
+    background-color: #f0f0f0;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
 nav a {
-  margin: 0 15px;
-  text-decoration: none;
-  font-weight: bold;
-  color: #444;
+    margin-right: 20px;
+    text-decoration: none;
+    color: #0066cc;
+    font-weight: bold;
 }
-
 nav a:hover {
-  color: #0077cc;
+    text-decoration: underline;
 }
-
-.container {
-  max-width: 800px;
-  margin: auto;
-  background: #fff;
-  padding: 30px;
-  border-radius: 8px;
-  box-shadow: 0 0 8px rgba(0,0,0,0.05);
+form {
+    background-color: #ffffff;
+    padding: 24px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    max-width: 700px;
 }
-
-h2 {
-  color: #333;
+input[type="text"],
+input[type="number"],
+select {
+    width: 200px;
+    padding: 8px;
+    margin: 6px 0 12px 0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
 }
-
-label {
-  font-weight: bold;
-}
-
-input, select {
-  width: 100%;
-  padding: 8px;
-  margin-top: 5px;
-  margin-bottom: 15px;
-  border-radius: 4px;
-  border: 1px solid #ccc;
-}
-
 button {
-  background-color: #0077cc;
-  color: #fff;
-  border: none;
-  padding: 10px 20px;
-  font-size: 16px;
-  border-radius: 4px;
-  cursor: pointer;
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
 }
-
 button:hover {
-  background-color: #005fa3;
+    background-color: #45a049;
+}
+.output-box {
+    margin-top: 30px;
+    padding: 20px;
+    background-color: #ffffff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
 }
