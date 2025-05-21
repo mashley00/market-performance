@@ -5,6 +5,9 @@ from fastapi.templating import Jinja2Templates
 import pandas as pd
 from fuzzywuzzy import process
 import logging
+from fb_insights import router as fb_router
+app.include_router(fb_router)
+
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
