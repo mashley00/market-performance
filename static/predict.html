@@ -1,61 +1,39 @@
-from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
-from fuzzywuzzy import fuzz
-import pandas as pd
+<!DOCTYPE html>
+<html>
+<head>
+  <title>CPR Predictor</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<header>
+  <img src="/static/acquireup-logo.png" alt="AcquireUp Logo" height="40">
+  <nav>
+    <a href="/market">Market Health</a>
+    <a href="/predict">Predict CPR</a>
+  </nav>
+</header>
 
-router = APIRouter()
+<div class="container">
+  <h2>📈 CPR Projection Tool</h2>
+  <form action="/predict-cpr" method="get" target="_blank">
+    <label>Impressions</label>
+    <input type="number" name="impressions" value="10000" required>
 
-df = pd.read_csv("static/all_events_23_25.csv")
-df.columns = df.columns.str.lower().str.replace(" ", "_").str.replace(r"[^\w\s]", "", regex=True)
-df["city"] = df["city"].astype(str).str.strip().str.lower()
-df["state"] = df["state"].astype(str).str.strip().str.upper()
-df["topic"] = df["topic"].astype(str).str.strip().str.lower()
+    <label>Reach</label>
+    <input type="number" name="reach" value="8000" required>
 
-def fuzzy_match_city(user_city, state):
-    user_city = user_city.lower()
-    candidates = df[df["state"] == state.upper()]["city"].unique()
-    best_match = max(candidates, key=lambda x: fuzz.ratio(x.lower(), user_city))
-    if fuzz.ratio(user_city, best_match) >= 75:
-        return best_match
-    return None
+    <label>Facebook Registrants</label>
+    <input type="number" name="fb_reg" value="50" required>
 
-@router.get("/predict.html", response_class=HTMLResponse)
-async def show_predict_form(request: Request):
-    return request.app.state.templates.TemplateResponse("predict_form.html", {"request": request})
+    <label>Facebook Days Running</label>
+    <input type="number" name="fb_days" value="7" required>
 
-@router.post("/predict", response_class=HTMLResponse)
-async def handle_predict(request: Request):
-    form = await request.form()
-    topic = form.get("topic", "").strip().lower()
-    city = form.get("city", "").strip().lower()
-    state = form.get("state", "").strip().upper()
+    <button type="submit">📊 Predict CPR</button>
+  </form>
 
-    matched_city = fuzzy_match_city(city, state)
-    if not matched_city:
-        return request.app.state.templates.TemplateResponse("predict_results.html", {
-            "request": request,
-            "error": f"Could not match city: {city.title()}, {state}"
-        })
-
-    subset = df[(df["city"] == matched_city) & (df["state"] == state) & (df["topic"] == topic)]
-    if subset.empty:
-        return request.app.state.templates.TemplateResponse("predict_results.html", {
-            "request": request,
-            "error": f"No data available for {matched_city.title()}, {state} for topic '{topic.upper()}'"
-        })
-
-    avg_cpr = subset["cpr"].mean()
-    fb_days = subset["facebook_days"].mean() if "facebook_days" in subset.columns else 10
-    fb_regs = subset["fb_registrants"].mean() if "fb_registrants" in subset.columns else 15
-
-    estimate = round((fb_regs / fb_days) * 14)
-
-    return request.app.state.templates.TemplateResponse("predict_results.html", {
-        "request": request,
-        "estimate": estimate,
-        "topic": topic.upper(),
-        "city": matched_city.title(),
-        "state": state,
-        "avg_cpr": round(avg_cpr, 2)
-    })
+  <hr>
+  <p>💡 Enter projected Facebook campaign data to estimate 14-day registrants and CPR effectiveness.</p>
+</div>
+</body>
+</html>
 
