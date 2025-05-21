@@ -2,42 +2,45 @@
 <html>
 <head>
   <title>Market Health Checker</title>
-  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<header>
-  <img src="/static/acquireup-logo.png" alt="AcquireUp Logo" height="40">
-  <nav>
-    <a href="/market">Market Health</a>
-    <a href="/predict">Predict CPR</a>
-  </nav>
-</header>
+  <header>
+    <img src="/static/logo.png" alt="AcquireUp Logo" style="height: 40px; vertical-align: middle;">
+    <nav>
+      <a href="/static/vor-form.html">📍 VOR</a>
+      <a href="/static/market.html">📊 Market Health</a>
+      <a href="/static/predict.html">📈 Predict CPR</a>
+    </nav>
+  </header>
 
-<div class="container">
-  <h2>📊 Market Health Check</h2>
-  <form action="/market-health" method="get" target="_blank">
-    <label>Search by ZIP:</label>
-    <input type="text" name="zip" placeholder="e.g. 48084">
+  <main>
+    <h2>📊 Market Health Checker</h2>
+    <form action="/market-health" method="get" target="_blank">
+      <label for="zip">Search by ZIP:</label><br>
+      <input type="text" id="zip" name="zip" placeholder="e.g. 48084"><br><br>
 
-    <label>Or by City & State:</label>
-    <input type="text" name="city" placeholder="e.g. Troy" required>
-    <input type="text" name="state" placeholder="e.g. MI" maxlength="2" required>
+      <label for="city">Or by City & State:</label><br>
+      <input type="text" id="city" name="city" placeholder="e.g. Troy">
+      <input type="text" id="state" name="state" placeholder="e.g. MI" maxlength="2"><br><br>
 
-    <label>Seminar Topic:</label>
-    <select name="topic" required>
-      <option value="">-- Select a Topic --</option>
-      <option value="TIR">Taxes in Retirement (TIR)</option>
-      <option value="EP">Estate Planning (EP)</option>
-      <option value="SS">Social Security (SS)</option>
-    </select>
+      <label for="topic">Seminar Topic:</label><br>
+      <select name="topic" id="topic">
+        <option value="">-- All Topics --</option>
+        <option value="TIR">Taxes in Retirement</option>
+        <option value="EP">Estate Planning</option>
+        <option value="SS">Social Security</option>
+      </select><br><br>
 
-    <button type="submit">🔍 Run Market Health</button>
-  </form>
+      <button type="submit" class="green-btn">🔍 Run Market Health</button>
+    </form>
 
-  <hr>
-  <p>💡 Use this tool to evaluate historical venue and topic performance in a local market.</p>
-</div>
+    <p style="margin-top: 2rem;">
+      <a href="/static/predict.html">📈 Try CPR Predictor</a>
+    </p>
+  </main>
 </body>
 </html>
+
 
 
