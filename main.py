@@ -1,19 +1,30 @@
-from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 import pandas as pd
 from fuzzywuzzy import process
 import logging
+
+# Facebook API Router
 from fb_insights import router as fb_router
-app.include_router(fb_router)
 
+# Init app
+app = FastAPI(title="Market Performance API")
 
-app = FastAPI()
+# Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
+
+# Mount static for HTML forms if needed
 app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="static")
 
-logging.basicConfig(level=logging.INFO)
+# Register FB router
+app.include_router(fb_router)
 
 # Load dataset
 try:
@@ -21,53 +32,40 @@ try:
     df.columns = df.columns.str.lower().str.replace(" ", "_").str.replace(r"[^\w\s]", "", regex=True)
     df['city'] = df['city'].str.lower().str.strip()
     df['state'] = df['state'].str.upper().str.strip()
+    logging.info("✅ Loaded dataset")
 except Exception as e:
-    logging.error("Error loading dataset.")
+    logging.error("❌ Failed to load dataset.")
     raise e
 
-
-@app.get("/", response_class=HTMLResponse)
-def home(request: Request):
-    return templates.TemplateResponse("market.html", {"request": request})
-
-
-@app.get("/predict", response_class=HTMLResponse)
-def predict_form(request: Request):
-    return templates.TemplateResponse("predict.html", {"request": request})
-
-
-@app.get("/market", response_class=HTMLResponse)
-def market_form(request: Request):
-    return templates.TemplateResponse("market.html", {"request": request})
-
-
+# --- Market Health Route ---
 @app.get("/market-health")
-def get_market_health(city: str = "", state: str = "", topic: str = ""):
+def get_market_health(city: str, state: str, topic: str):
     city = city.lower().strip()
     state = state.upper().strip()
     topic = topic.strip().upper()
 
     cities_in_state = df[df['state'] == state]['city'].unique().tolist()
     best_match, score = process.extractOne(city, cities_in_state)
-    filtered = df[(df['city'] == best_match) & (df['state'] == state)]
-
-    if topic:
-        filtered = filtered[filtered['seminar_topic'] == topic]
+    filtered = df[(df['city'] == best_match) & (df['state'] == state) & (df['seminar_topic'] == topic)]
 
     if filtered.empty:
         return JSONResponse(status_code=404, content={"detail": f"No data for {city}, {state} ({topic})"})
+
+    avg_cpr = filtered['fb_cpr'].mean()
+    avg_cpa = filtered['cost_per_verified_hh'].mean()
+    avg_registrants = filtered['gross_registrants'].mean()
 
     return {
         "city": best_match,
         "state": state,
         "topic": topic,
         "events": len(filtered),
-        "avg_cpr": round(filtered['fb_cpr'].mean(), 2),
-        "avg_cpa": round(filtered['cost_per_verified_hh'].mean(), 2),
-        "avg_registrants": round(filtered['gross_registrants'].mean(), 2)
+        "avg_cpr": round(avg_cpr, 2),
+        "avg_cpa": round(avg_cpa, 2),
+        "avg_registrants": round(avg_registrants, 2)
     }
 
-
+# --- Predict CPR Route ---
 @app.get("/predict-cpr")
 def predict_cpr(impressions: float = 10000, reach: float = 8000, fb_reg: int = 50, fb_days: int = 7):
     try:
@@ -82,6 +80,4 @@ def predict_cpr(impressions: float = 10000, reach: float = 8000, fb_reg: int = 5
         }
     except ZeroDivisionError:
         return JSONResponse(status_code=400, content={"detail": "Invalid input. Division by zero."})
-
-
 
