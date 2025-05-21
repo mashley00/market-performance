@@ -1,44 +1,42 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Market Performance Tool</title>
+  <title>Market Health Checker</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-
 <header>
-  <img src="/static/acquireup-logo.png" alt="AcquireUp" height="40">
+  <img src="/static/acquireup-logo.png" alt="AcquireUp Logo" height="40">
   <nav>
-    <a href="/">Market Health</a>
+    <a href="/market">Market Health</a>
     <a href="/predict">Predict CPR</a>
   </nav>
 </header>
 
 <div class="container">
-
-<body>
-  <h2>📊 Check Market Health</h2>
+  <h2>📊 Market Health Check</h2>
   <form action="/market-health" method="get" target="_blank">
-    <label>Search by ZIP:</label><br>
-    <input type="text" name="zip" placeholder="e.g. 48084"><br><br>
+    <label>Search by ZIP:</label>
+    <input type="text" name="zip" placeholder="e.g. 48084">
 
-    <label>Or by City & State:</label><br>
-    <input type="text" name="city" placeholder="e.g. Troy">
-    <input type="text" name="state" placeholder="e.g. MI" maxlength="2"><br><br>
+    <label>Or by City & State:</label>
+    <input type="text" name="city" placeholder="e.g. Troy" required>
+    <input type="text" name="state" placeholder="e.g. MI" maxlength="2" required>
 
-    <label>Seminar Topic:</label><br>
-    <select name="topic">
-      <option value="">-- All Topics --</option>
-      <option value="TIR">Taxes in Retirement</option>
-      <option value="EP">Estate Planning</option>
-      <option value="SS">Social Security</option>
-    </select><br><br>
+    <label>Seminar Topic:</label>
+    <select name="topic" required>
+      <option value="">-- Select a Topic --</option>
+      <option value="TIR">Taxes in Retirement (TIR)</option>
+      <option value="EP">Estate Planning (EP)</option>
+      <option value="SS">Social Security (SS)</option>
+    </select>
 
     <button type="submit">🔍 Run Market Health</button>
   </form>
 
   <hr>
-  <p><a href="/predict.html">Try CPR Predictor ↗️</a></p>
-  <p><a href="/">Back to Home ↩️</a></p>
+  <p>💡 Use this tool to evaluate historical venue and topic performance in a local market.</p>
+</div>
 </body>
 </html>
+
