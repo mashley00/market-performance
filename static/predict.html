@@ -2,38 +2,57 @@
 <html>
 <head>
   <title>CPR Predictor</title>
-  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<header>
-  <img src="/static/acquireup-logo.png" alt="AcquireUp Logo" height="40">
-  <nav>
-    <a href="/market">Market Health</a>
-    <a href="/predict">Predict CPR</a>
-  </nav>
-</header>
+  <header>
+    <img src="/static/logo.png" alt="AcquireUp Logo" style="height: 40px; vertical-align: middle;">
+    <nav>
+      <a href="/static/vor-form.html">📍 VOR</a>
+      <a href="/static/market.html">📊 Market Health</a>
+      <a href="/static/predict.html">📈 Predict CPR</a>
+    </nav>
+  </header>
 
-<div class="container">
-  <h2>📈 CPR Projection Tool</h2>
-  <form action="/predict-cpr" method="get" target="_blank">
-    <label>Impressions</label>
-    <input type="number" name="impressions" value="10000" required>
+  <main>
+    <h2>📈 CPR Projection Tool</h2>
+    <form id="cprForm">
+      <label>Impressions</label>
+      <input type="number" name="impressions" value="10000"><br>
 
-    <label>Reach</label>
-    <input type="number" name="reach" value="8000" required>
+      <label>Reach</label>
+      <input type="number" name="reach" value="8000"><br>
 
-    <label>Facebook Registrants</label>
-    <input type="number" name="fb_reg" value="50" required>
+      <label>Facebook Registrants</label>
+      <input type="number" name="fb_reg" value="50"><br>
 
-    <label>Facebook Days Running</label>
-    <input type="number" name="fb_days" value="7" required>
+      <label>Facebook Days Running</label>
+      <input type="number" name="fb_days" value="7"><br>
 
-    <button type="submit">📊 Predict CPR</button>
-  </form>
+      <button type="submit" class="green-btn">📊 Predict CPR</button>
+    </form>
 
-  <hr>
-  <p>💡 Enter projected Facebook campaign data to estimate 14-day registrants and CPR effectiveness.</p>
-</div>
+    <div id="results" style="margin-top: 2rem;"></div>
+
+    <script>
+      document.getElementById("cprForm").addEventListener("submit", async function (e) {
+        e.preventDefault();
+        const form = e.target;
+        const params = new URLSearchParams(new FormData(form)).toString();
+        const res = await fetch(`/predict-cpr?${params}`);
+        const data = await res.json();
+
+        const output = `
+          <h3>📋 Results:</h3>
+          <p><strong>📈 Projected 14-Day Registrants:</strong> ${data["14_day_projection_from_fb"]}</p>
+          <p><strong>💰 Registrants per Impression:</strong> ${data["registrants_per_impression"]}</p>
+          <p><strong>📣 Registrants per Reach:</strong> ${data["registrants_per_reach"]}</p>
+        `;
+        document.getElementById("results").innerHTML = output;
+      });
+    </script>
+  </main>
 </body>
 </html>
+
 
