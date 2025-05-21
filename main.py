@@ -34,11 +34,19 @@ try:
     df = pd.read_csv(CSV_URL, encoding="utf-8")
     df.columns = df.columns.str.lower().str.replace(" ", "_").str.replace(r"[^\w\s]", "", regex=True)
     df["event_date"] = pd.to_datetime(df["event_date"], errors="coerce")
-    df["zip_code"] = df.get("zip_code", "").fillna("").astype(str).str.strip().str.zfill(5)
+    df["event_day"] = df["event_date"].dt.day_name()
+    df["event_time"] = df["event_time"].astype(str).str.strip()
+
+    if "zip_code" in df.columns:
+        df["zip_code"] = df["zip_code"].fillna("").astype(str).str.strip().str.zfill(5)
+    else:
+        df["zip_code"] = ""
+
     logger.info(f"Loaded dataset: {df.shape}")
 except Exception as e:
     logger.exception("Error loading dataset.")
     raise e
+
 
 # -------------------------
 # Topic Map
