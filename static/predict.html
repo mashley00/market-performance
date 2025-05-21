@@ -1,32 +1,61 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>CPR Prediction Tool</title>
-</head>
-<body>
-  <h2>📈 Predict CPR for Upcoming Campaign</h2>
-  <form action="/predict-cpr" method="get" target="_blank">
-    <label>Search by ZIP:</label><br>
-    <input type="text" name="zip" placeholder="e.g. 48084"><br><br>
+from fastapi import APIRouter, Request
+from fastapi.responses import HTMLResponse
+from fuzzywuzzy import fuzz
+import pandas as pd
 
-    <label>Or by City & State:</label><br>
-    <input type="text" name="city" placeholder="e.g. Troy">
-    <input type="text" name="state" placeholder="e.g. MI" maxlength="2"><br><br>
+router = APIRouter()
 
-    <label>Seminar Topic:</label><br>
-    <select name="topic">
-      <option value="">-- All Topics --</option>
-      <option value="TIR">Taxes in Retirement</option>
-      <option value="EP">Estate Planning</option>
-      <option value="SS">Social Security</option>
-    </select><br><br>
+df = pd.read_csv("static/all_events_23_25.csv")
+df.columns = df.columns.str.lower().str.replace(" ", "_").str.replace(r"[^\w\s]", "", regex=True)
+df["city"] = df["city"].astype(str).str.strip().str.lower()
+df["state"] = df["state"].astype(str).str.strip().str.upper()
+df["topic"] = df["topic"].astype(str).str.strip().str.lower()
 
-    <button type="submit">📊 Predict CPR</button>
-  </form>
+def fuzzy_match_city(user_city, state):
+    user_city = user_city.lower()
+    candidates = df[df["state"] == state.upper()]["city"].unique()
+    best_match = max(candidates, key=lambda x: fuzz.ratio(x.lower(), user_city))
+    if fuzz.ratio(user_city, best_match) >= 75:
+        return best_match
+    return None
 
-  <hr>
-  <p><a href="/market.html">Check Market Health ↗️</a></p>
-  <p><a href="/">Back to Home ↩️</a></p>
-</body>
-</html>
+@router.get("/predict.html", response_class=HTMLResponse)
+async def show_predict_form(request: Request):
+    return request.app.state.templates.TemplateResponse("predict_form.html", {"request": request})
+
+@router.post("/predict", response_class=HTMLResponse)
+async def handle_predict(request: Request):
+    form = await request.form()
+    topic = form.get("topic", "").strip().lower()
+    city = form.get("city", "").strip().lower()
+    state = form.get("state", "").strip().upper()
+
+    matched_city = fuzzy_match_city(city, state)
+    if not matched_city:
+        return request.app.state.templates.TemplateResponse("predict_results.html", {
+            "request": request,
+            "error": f"Could not match city: {city.title()}, {state}"
+        })
+
+    subset = df[(df["city"] == matched_city) & (df["state"] == state) & (df["topic"] == topic)]
+    if subset.empty:
+        return request.app.state.templates.TemplateResponse("predict_results.html", {
+            "request": request,
+            "error": f"No data available for {matched_city.title()}, {state} for topic '{topic.upper()}'"
+        })
+
+    avg_cpr = subset["cpr"].mean()
+    fb_days = subset["facebook_days"].mean() if "facebook_days" in subset.columns else 10
+    fb_regs = subset["fb_registrants"].mean() if "fb_registrants" in subset.columns else 15
+
+    estimate = round((fb_regs / fb_days) * 14)
+
+    return request.app.state.templates.TemplateResponse("predict_results.html", {
+        "request": request,
+        "estimate": estimate,
+        "topic": topic.upper(),
+        "city": matched_city.title(),
+        "state": state,
+        "avg_cpr": round(avg_cpr, 2)
+    })
 
