@@ -1,82 +1,83 @@
-import pandas as pd
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from fuzzywuzzy import fuzz
+from fuzzywuzzy import process
+import pandas as pd
 import logging
-
-# Setup
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("MarketPerformance")
 
 app = FastAPI()
 templates = Jinja2Templates(directory="static")
 
-# Load and preprocess dataset
+# Remote dataset URL
+DATA_URL = "https://acquireup-venue-data.s3.us-east-2.amazonaws.com/all_events_23_25.csv"
+
+# Try to load the dataset
 try:
-    df = pd.read_csv("static/all_events_23_25.csv")
+    df = pd.read_csv(DATA_URL)
     df.columns = df.columns.str.lower().str.replace(" ", "_").str.replace(r"[^\w\s]", "", regex=True)
-
-    df["event_date"] = pd.to_datetime(df["event_date"], errors="coerce")
-    df["city"] = df["city"].astype(str).str.strip().str.lower()
-    df["state"] = df["state"].astype(str).str.strip().str.upper()
-    df["topic"] = df["topic"].astype(str).str.strip().str.lower()
-
-    logger.info(f"Loaded dataset: {df.shape}")
+    df['city'] = df['city'].str.strip().str.lower()
+    df['state'] = df['state'].str.strip().str.upper()
 except Exception as e:
-    logger.error("Error loading dataset.")
+    logging.error("Error loading dataset.", exc_info=True)
     raise e
 
+# Utility: Fuzzy match city name within same state
+def fuzzy_match_city(input_city, state):
+    possible_cities = df[df['state'] == state]['city'].unique()
+    best_match, score = process.extractOne(input_city.lower(), possible_cities, scorer=fuzz.token_sort_ratio)
+    return best_match if score >= 80 else None
 
-def fuzzy_city_match(user_city, state):
-    user_city = user_city.lower()
-    candidates = df[df["state"] == state.upper()]["city"].unique()
-    best_match = max(candidates, key=lambda x: fuzz.ratio(x.lower(), user_city))
-    if fuzz.ratio(user_city, best_match) >= 75:
-        return best_match
-    return None
+@app.get("/")
+def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
-
-@app.get("/market.html", response_class=HTMLResponse)
-async def get_market_form(request: Request):
-    return templates.TemplateResponse("market_form.html", {"request": request})
-
-
-@app.post("/market", response_class=HTMLResponse)
-async def run_market_form(request: Request):
-    form = await request.form()
-    city = form.get("city", "").strip().lower()
-    state = form.get("state", "").strip().upper()
-    topic = form.get("topic", "").strip().lower()
-
-    matched_city = fuzzy_city_match(city, state)
+@app.get("/market")
+def get_market_health(city: str, state: str, topic: str):
+    matched_city = fuzzy_match_city(city, state)
     if not matched_city:
-        return templates.TemplateResponse("market_results.html", {
-            "request": request,
-            "error": f"No match found for city '{city.title()}', state '{state}'"
-        })
+        return JSONResponse({"error": f"No close match for city '{city}' in {state}."}, status_code=404)
 
-    subset = df[(df["city"] == matched_city) & (df["state"] == state) & (df["topic"] == topic)]
+    subset = df[
+        (df['city'] == matched_city) &
+        (df['state'] == state) &
+        (df['seminar_topic_code'].str.upper() == topic.upper())
+    ]
+
     if subset.empty:
-        return templates.TemplateResponse("market_results.html", {
-            "request": request,
-            "error": f"No events found for {matched_city.title()}, {state} for topic {topic.upper()}."
-        })
+        return JSONResponse({"error": f"No data found for {matched_city}, {state} and topic {topic}."}, status_code=404)
 
-    summary = {
-        "city": matched_city.title(),
+    stats = {
+        "city": matched_city,
         "state": state,
         "topic": topic.upper(),
         "events": len(subset),
-        "avg_cpr": round(subset["cpr"].mean(), 2),
-        "avg_cpa": round(subset["cost_per_verified_hh"].mean(), 2),
-        "avg_att_rate": round((subset["attended_hh"].sum() / subset["gross_registrants"].sum()) * 100, 1)
+        "avg_cpr": round(subset['cpr'].mean(), 2),
+        "avg_cpa": round(subset['cost_per_verified_hh'].mean(), 2),
+        "avg_registrants": round(subset['gross_registrants'].mean(), 1)
     }
 
-    return templates.TemplateResponse("market_results.html", {
-        "request": request,
-        "summary": summary
-    })
+    return stats
+
+@app.get("/predict")
+def predict_registrations(impressions: float = 0, reach: float = 0, fb_reg: float = 0, fb_days: int = 0):
+    try:
+        output = {}
+
+        if fb_reg and fb_days:
+            output['14_day_projection_from_fb'] = round((fb_reg / fb_days) * 14, 2)
+
+        if impressions:
+            output['registrants_per_impression'] = round((fb_reg / impressions) * impressions, 2)
+
+        if reach:
+            output['registrants_per_reach'] = round((fb_reg / reach) * reach, 2)
+
+        return output or {"message": "Insufficient data for prediction."}
+
+    except Exception as e:
+        logging.error("Prediction error", exc_info=True)
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 
