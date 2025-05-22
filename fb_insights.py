@@ -1,27 +1,24 @@
 from fastapi import APIRouter, HTTPException
 import requests
 import logging
-from datetime import date
 import os
+import json
+from datetime import date
 
 router = APIRouter()
 
-# Securely load the access token from environment
+# Load token from environment variable
 ACCESS_TOKEN = os.getenv("FB_ACCESS_TOKEN")
-if not ACCESS_TOKEN:
-    raise RuntimeError("❌ FB_ACCESS_TOKEN is not set in environment variables!")
-
 AD_ACCOUNT_ID = "act_177526423462639"
 GRAPH_API_VERSION = "v22.0"
 BASE_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{AD_ACCOUNT_ID}/insights"
 
-# Date range: year-to-date
+# Date range for YTD
 time_range = {
     "since": "2025-01-01",
     "until": str(date.today())
 }
 
-# Metrics fields to request
 FIELDS = "campaign_name,impressions,reach,spend"
 
 @router.get("/fb-insights")
@@ -31,16 +28,13 @@ def get_fb_insights():
             BASE_URL,
             params={
                 "access_token": ACCESS_TOKEN,
-                "time_range": time_range,
+                "time_range": json.dumps(time_range),  # <- Correct format
                 "fields": FIELDS
             }
         )
         response.raise_for_status()
         data = response.json()
         return {"fb_insights": data.get("data", [])}
-
     except requests.exceptions.RequestException as e:
         logging.error(f"Facebook API error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch FB data")
-
-
