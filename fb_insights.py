@@ -1,42 +1,65 @@
+import os
+import json
+import logging
+from datetime import date
 from fastapi import APIRouter, HTTPException
 import requests
-import logging
-import os
-from datetime import date
+
+from campaign_db import update_campaign_targets, get_all_job_numbers
 
 router = APIRouter()
 
-# Secure token from environment
+# Load access token from environment variable
 ACCESS_TOKEN = os.getenv("FB_ACCESS_TOKEN")
+if not ACCESS_TOKEN:
+    raise ValueError("FB_ACCESS_TOKEN environment variable is not set.")
+
 AD_ACCOUNT_ID = "act_177526423462639"
 GRAPH_API_VERSION = "v22.0"
 BASE_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{AD_ACCOUNT_ID}/insights"
 
-# YTD Date Range
-TODAY = str(date.today())
-TIME_RANGE = f'{{"since":"2025-01-01","until":"{TODAY}"}}'
+# Full year-to-date range
+time_range = {
+    "since": "2025-01-01",
+    "until": str(date.today())
+}
 
-# Requested fields
 FIELDS = "campaign_name,campaign_id,impressions,reach,spend"
+LEVEL = "campaign"
+LIMIT = 500
 
 @router.get("/fb-insights")
 def get_fb_insights():
     try:
+        # Send request with corrected time_range formatting
         response = requests.get(
             BASE_URL,
             params={
                 "access_token": ACCESS_TOKEN,
-                "time_range": TIME_RANGE,
                 "fields": FIELDS,
-                "level": "campaign",
-                "limit": 500
+                "level": LEVEL,
+                "limit": LIMIT,
+                "time_range": json.dumps(time_range)  # ✅ JSON string
             }
         )
         response.raise_for_status()
-        data = response.json()
-        return {"fb_insights": data.get("data", [])}
+        fb_data = response.json().get("data", [])
+
+        if not fb_data:
+            return {"fb_insights": []}
+
+        # Update campaign database with matching info
+        known_jobs = get_all_job_numbers()
+        matched = update_campaign_targets(fb_data, known_jobs)
+
+        return {
+            "fb_insights": matched,
+            "total_campaigns": len(fb_data),
+            "matched": len(matched),
+            "unmatched": len(fb_data) - len(matched)
+        }
+
     except requests.exceptions.RequestException as e:
         logging.error(f"Facebook API error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch FB data")
-
 
