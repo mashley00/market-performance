@@ -6,11 +6,12 @@ import pandas as pd
 from fuzzywuzzy import process
 import logging
 
-# Facebook API Router
+# Facebook and DB
 from fb_insights import router as fb_router
+from campaign_db import init_db
 
-# Init app
-app = FastAPI(title="Market Performance API")
+# Init FastAPI app
+app = FastAPI(title="Market Performance API", version="1.0.0")
 
 # Middleware
 app.add_middleware(
@@ -20,13 +21,18 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# Mount static for HTML forms if needed
+# Static HTML forms support
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Register FB router
+# Register routers
 app.include_router(fb_router)
 
-# Load dataset
+# Initialize local DB on startup
+@app.on_event("startup")
+def on_startup():
+    init_db()
+
+# --- Load dataset ---
 try:
     df = pd.read_csv("https://acquireup-venue-data.s3.us-east-2.amazonaws.com/all_events_23_25.csv", encoding='utf-8')
     df.columns = df.columns.str.lower().str.replace(" ", "_").str.replace(r"[^\w\s]", "", regex=True)
@@ -37,7 +43,7 @@ except Exception as e:
     logging.error("❌ Failed to load dataset.")
     raise e
 
-# --- Market Health Route ---
+# --- Market Health ---
 @app.get("/market-health")
 def get_market_health(city: str, state: str, topic: str):
     city = city.lower().strip()
@@ -65,7 +71,7 @@ def get_market_health(city: str, state: str, topic: str):
         "avg_registrants": round(avg_registrants, 2)
     }
 
-# --- Predict CPR Route ---
+# --- CPR Predictor ---
 @app.get("/predict-cpr")
 def predict_cpr(impressions: float = 10000, reach: float = 8000, fb_reg: int = 50, fb_days: int = 7):
     try:
