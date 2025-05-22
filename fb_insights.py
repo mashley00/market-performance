@@ -2,60 +2,88 @@ from fastapi import APIRouter, HTTPException
 import requests
 import logging
 from datetime import date
+from campaign_db import update_campaign_targets, get_all_job_numbers
 
 router = APIRouter()
 
-ACCESS_TOKEN = "REPLACE_WITH_YOUR_LONG_LIVED_TOKEN"
+# Environment Config
+import os
+ACCESS_TOKEN = os.getenv("FB_ACCESS_TOKEN")
 AD_ACCOUNT_ID = "act_177526423462639"
 GRAPH_API_VERSION = "v22.0"
-INSIGHTS_BASE_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{AD_ACCOUNT_ID}/insights"
-ADSETS_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{AD_ACCOUNT_ID}/adsets"
+BASE_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{AD_ACCOUNT_ID}/insights"
 
-FIELDS = "campaign_name,impressions,reach,spend"
+# Time range
+time_range = {
+    "since": "2025-01-01",
+    "until": str(date.today())
+}
 
+# Fields for performance insights
+INSIGHT_FIELDS = "campaign_name,campaign_id,impressions,reach,spend"
+
+# --- Get Performance Insights ---
 @router.get("/fb-insights")
 def get_fb_insights():
     try:
         response = requests.get(
-            INSIGHTS_BASE_URL,
+            BASE_URL,
             params={
                 "access_token": ACCESS_TOKEN,
-                "time_range": {
-                    "since": "2025-01-01",
-                    "until": str(date.today())
-                },
-                "fields": FIELDS
+                "time_range": time_range,
+                "fields": INSIGHT_FIELDS,
+                "level": "campaign",
+                "limit": 500
             }
         )
         response.raise_for_status()
-        return {"fb_insights": response.json().get("data", [])}
+        data = response.json().get("data", [])
+        return {"fb_insights": data}
     except requests.exceptions.RequestException as e:
         logging.error(f"Facebook API error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch FB data")
 
-@router.get("/fb-geo-targeting")
-def get_geo_targeting(limit: int = 50):
+
+# --- NEW: Get Targeting Details for a Campaign ---
+@router.get("/fb-campaign-targeting")
+def get_fb_campaign_targeting(campaign_id: str):
     try:
         response = requests.get(
-            ADSETS_URL,
+            f"https://graph.facebook.com/{GRAPH_API_VERSION}/{campaign_id}",
             params={
                 "access_token": ACCESS_TOKEN,
-                "fields": "id,name,targeting",
-                "limit": limit
+                "fields": "id,name,targeting"
             }
         )
         response.raise_for_status()
-        adsets = response.json().get("data", [])
-        targeting_info = [
-            {
-                "id": ad["id"],
-                "name": ad["name"],
-                "targeting": ad.get("targeting", {}).get("geo_locations", {})
-            }
-            for ad in adsets
-        ]
-        return {"geo_targeting": targeting_info}
+        return response.json()
     except requests.exceptions.RequestException as e:
-        logging.error(f"Geo-targeting fetch failed: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch geo targeting data")
+        logging.error(f"Facebook Targeting API error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch targeting data")
+
+
+# --- Optional: Bulk Targeting Pull for All Jobs in DB ---
+@router.get("/fb-sync-targeting")
+def sync_all_targeting():
+    try:
+        job_numbers = get_all_job_numbers()
+        synced = 0
+        for job_id, campaign_id in job_numbers:
+            targeting_url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{campaign_id}"
+            resp = requests.get(
+                targeting_url,
+                params={
+                    "access_token": ACCESS_TOKEN,
+                    "fields": "id,name,targeting"
+                }
+            )
+            if resp.ok:
+                targeting_info = resp.json().get("targeting", {})
+                update_campaign_targets(job_id, targeting_info)
+                synced += 1
+        return {"message": f"Synced targeting data for {synced} campaigns."}
+    except Exception as e:
+        logging.error(f"Error syncing campaign targeting: {e}")
+        raise HTTPException(status_code=500, detail="Failed to sync targeting data")
+
 
