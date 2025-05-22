@@ -3,4 +3,5 @@ uvicorn
 pandas
 fuzzywuzzy[speedup]
 jinja2
-requests   # ✅ add this
+requests
+sqlalchemy
