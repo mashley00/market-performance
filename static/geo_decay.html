@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Geo Decay Curve</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body style="font-family: Arial, sans-serif; padding: 20px;">
+    <h2>📉 Geo Decay Curve: Impressions vs CPA by ZIP</h2>
+    <div id="plot" style="width: 100%; height: 600px;"></div>
+
+    <script>
+        async function fetchData() {
+            const res = await fetch("/geo-decay");
+            const result = await res.json();
+            return result.data || [];
+        }
+
+        function renderPlot(data) {
+            const x = data.map(d => d.total_impressions);
+            const y = data.map(d => d.average_cpa);
+            const text = data.map(d => `ZIP: ${d.zip}<br>Events: ${d.event_count}`);
+
+            const trace = {
+                x: x,
+                y: y,
+                text: text,
+                mode: 'markers',
+                type: 'scatter',
+                marker: {
+                    size: data.map(d => Math.max(6, d.event_count * 3)),
+                    color: data.map(d => d.average_cpa),
+                    colorscale: 'Portland',
+                    showscale: true,
+                    colorbar: { title: "Avg CPA" }
+                }
+            };
+
+            const layout = {
+                xaxis: { title: "Total Impressions" },
+                yaxis: { title: "Average CPA ($)" },
+                title: "Campaign Saturation vs Efficiency by ZIP"
+            };
+
+            Plotly.newPlot("plot", [trace], layout);
+        }
+
+        fetchData().then(renderPlot);
+    </script>
+</body>
+</html>
