@@ -1,126 +1,29 @@
-import sqlite3
-import json
-from datetime import datetime
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
-DB_FILE = "campaigns.db"
+# Routers
+from fb_insights import router as fb_insights_router
+from fb_targeting import router as fb_targeting_router
+from geo_decay import router as geo_decay_router
 
-# 🔧 1. Ensure DB tables are created
-def init_db():
-    conn = sqlite3.connect(DB_FILE)
-    cur = conn.cursor()
+# DB initializer
+from campaign_db import init_db
 
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS campaign_targets (
-            campaign_id TEXT PRIMARY KEY,
-            campaign_name TEXT,
-            job_number TEXT,
-            city TEXT,
-            state TEXT
-        )
-    """)
+# ✅ MUST exist for Render/Uvicorn
+app = FastAPI()
 
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS targeting_data (
-            job_number TEXT PRIMARY KEY,
-            campaign_id TEXT,
-            adset_id TEXT,
-            geo_locations TEXT,
-            age_min INTEGER,
-            age_max INTEGER,
-            gender TEXT,
-            last_synced TEXT
-        )
-    """)
+# Ensure database is initialized on boot
+init_db()
 
-    conn.commit()
-    conn.close()
+# Attach API routers
+app.include_router(fb_insights_router)
+app.include_router(fb_targeting_router)
+app.include_router(geo_decay_router)
 
-# 🔎 Extract job number from campaign name
-def extract_job_number(campaign_name):
-    parts = campaign_name.split()
-    for part in parts:
-        if part.isdigit() and len(part) >= 5:
-            return part
-    return None
+# Optional: Static file mounting if you add frontend
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# 🔁 Update FB campaign metadata, return matched list
-def update_campaign_targets(fb_data, known_jobs):
-    conn = sqlite3.connect(DB_FILE)
-    cur = conn.cursor()
-
-    matched_rows = []
-
-    for campaign in fb_data:
-        name = campaign.get("campaign_name")
-        campaign_id = campaign.get("campaign_id")
-        if not name or not campaign_id:
-            continue
-
-        job_number = extract_job_number(name)
-        city = state = None
-
-        for job in known_jobs:
-            if job_number == job.get("job_number"):
-                city = job.get("city")
-                state = job.get("state")
-                break
-
-        cur.execute("""
-            INSERT OR REPLACE INTO campaign_targets
-            (campaign_id, campaign_name, job_number, city, state)
-            VALUES (?, ?, ?, ?, ?)
-        """, (campaign_id, name, job_number, city, state))
-
-        matched_rows.append({
-            "campaign_id": campaign_id,
-            "campaign_name": name,
-            "job_number": job_number,
-            "city": city,
-            "state": state
-        })
-
-    conn.commit()
-    conn.close()
-
-    return matched_rows
-
-# 🔄 Get all current job/campaign info
-def get_all_job_numbers():
-    conn = sqlite3.connect(DB_FILE)
-    cur = conn.cursor()
-    cur.execute("SELECT job_number, campaign_id, city, state FROM campaign_targets")
-    rows = cur.fetchall()
-    conn.close()
-
-    return [
-        {
-            "job_number": row[0],
-            "campaign_id": row[1],
-            "city": row[2],
-            "state": row[3]
-        }
-        for row in rows if row[0]
-    ]
-
-# 💾 Store targeting info by job
-def store_targeting_data(job_number, campaign_id, adset_id, geo_locations, age_min, age_max, gender, last_synced):
-    conn = sqlite3.connect(DB_FILE)
-    cur = conn.cursor()
-
-    cur.execute("""
-        INSERT OR REPLACE INTO targeting_data
-        (job_number, campaign_id, adset_id, geo_locations, age_min, age_max, gender, last_synced)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        job_number,
-        campaign_id,
-        adset_id,
-        json.dumps(geo_locations),
-        age_min,
-        age_max,
-        gender,
-        last_synced
-    ))
-
-    conn.commit()
-    conn.close()
+# Health check route
+@app.get("/")
+def health_check():
+    return {"message": "✅ Market Performance API is running"}
