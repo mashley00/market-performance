@@ -1,65 +1,70 @@
+
 import sqlite3
-from typing import List, Dict
 
-DATABASE = "campaign_insights.db"
+DB_FILE = "campaigns.db"
 
+# Initialize table
 def init_db():
-    conn = sqlite3.connect(DATABASE)
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS campaign_insights (
-            job_number TEXT PRIMARY KEY,
+    conn = sqlite3.connect(DB_FILE)
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS campaign_targets (
+            campaign_id TEXT PRIMARY KEY,
             campaign_name TEXT,
-            impressions INTEGER,
-            reach INTEGER,
-            spend REAL,
-            frequency REAL,
-            ctr REAL,
-            complete_registrations INTEGER,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            job_number TEXT,
+            city TEXT,
+            state TEXT
         )
-    ''')
+    """)
     conn.commit()
     conn.close()
 
-def upsert_campaign_insight(insight: Dict):
-    conn = sqlite3.connect(DATABASE)
-    c = conn.cursor()
-    c.execute('''
-        INSERT INTO campaign_insights (
-            job_number, campaign_name, impressions, reach, spend, frequency, ctr, complete_registrations
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(job_number) DO UPDATE SET
-            campaign_name=excluded.campaign_name,
-            impressions=excluded.impressions,
-            reach=excluded.reach,
-            spend=excluded.spend,
-            frequency=excluded.frequency,
-            ctr=excluded.ctr,
-            complete_registrations=excluded.complete_registrations
-    ''', (
-        insight["job_number"],
-        insight["campaign_name"],
-        insight.get("impressions", 0),
-        insight.get("reach", 0),
-        insight.get("spend", 0.0),
-        insight.get("frequency", 0.0),
-        insight.get("ctr", 0.0),
-        insight.get("complete_registrations", 0)
-    ))
+# Extract job number from campaign name
+def extract_job_number(campaign_name):
+    parts = campaign_name.split()
+    for part in parts:
+        if part.isdigit() and len(part) >= 5:
+            return part
+    return None
+
+# Add or update campaigns
+def update_campaign_targets(fb_data, known_jobs):
+    conn = sqlite3.connect(DB_FILE)
+    cur = conn.cursor()
+
+    for campaign in fb_data:
+        name = campaign.get("campaign_name")
+        campaign_id = campaign.get("campaign_id")
+        if not name or not campaign_id:
+            continue
+
+        job_number = extract_job_number(name)
+        city = state = None
+
+        for job in known_jobs:
+            if job_number == job.get("job_number"):
+                city = job.get("city")
+                state = job.get("state")
+                break
+
+        cur.execute("""
+            INSERT OR REPLACE INTO campaign_targets (campaign_id, campaign_name, job_number, city, state)
+            VALUES (?, ?, ?, ?, ?)
+        """, (campaign_id, name, job_number, city, state))
+
     conn.commit()
     conn.close()
 
-def get_all_job_numbers() -> List[str]:
-    conn = sqlite3.connect(DATABASE)
-    c = conn.cursor()
-    c.execute("SELECT job_number FROM campaign_insights")
-    job_numbers = [row[0] for row in c.fetchall()]
+def get_all_job_numbers():
+    conn = sqlite3.connect(DB_FILE)
+    cur = conn.cursor()
+    cur.execute("SELECT DISTINCT job_number, city, state FROM campaign_targets")
+    rows = cur.fetchall()
     conn.close()
-    return job_numbers
 
-def update_campaign_targets(new_data: List[Dict]):
-    for entry in new_data:
-        upsert_campaign_insight(entry)
+    return [
+        {"job_number": row[0], "city": row[1], "state": row[2]}
+        for row in rows if row[0]
+    ]
+
 
