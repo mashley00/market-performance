@@ -1,0 +1,52 @@
+import sqlite3
+import json
+from fastapi import APIRouter
+from collections import defaultdict
+
+router = APIRouter()
+DB_FILE = "campaigns.db"
+
+@router.get("/geo-decay")
+def geo_decay():
+    conn = sqlite3.connect(DB_FILE)
+    cur = conn.cursor()
+
+    cur.execute("SELECT job_number, geo_locations FROM targeting_data")
+    targeting_rows = cur.fetchall()
+
+    geo_zip_map = defaultdict(list)
+
+    for job_number, geo_json in targeting_rows:
+        try:
+            geo = json.loads(geo_json)
+            zips = geo.get("zips", [])
+            for zip_code in zips:
+                geo_zip_map[zip_code].append(job_number)
+        except Exception:
+            continue
+
+    # Load .csv-backed metrics into memory
+    import pandas as pd
+    df = pd.read_csv("https://acquireup-venue-data.s3.us-east-2.amazonaws.com/all_events_23_25.csv", encoding='utf-8')
+    df.columns = df.columns.str.lower().str.replace(" ", "_").str.replace(r"[^\w\s]", "", regex=True)
+
+    # Build metrics per zip
+    decay_data = []
+    for zip_code, jobs in geo_zip_map.items():
+        subset = df[df['job_number'].isin(jobs)]
+        if subset.empty:
+            continue
+
+        impressions = subset['fb_impressions'].sum()
+        avg_cpa = subset['cost_per_verified_hh'].mean()
+        events = len(subset)
+
+        decay_data.append({
+            "zip": zip_code,
+            "total_impressions": int(impressions),
+            "average_cpa": round(avg_cpa, 2),
+            "event_count": events
+        })
+
+    return {
+        "count": len(decay_da_
