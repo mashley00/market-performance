@@ -9,6 +9,9 @@ import logging
 # Routers and DB
 from fb_insights import router as fb_router
 from campaign_db import init_db
+from fb_targeting import router as targeting_router
+app.include_router(targeting_router)
+
 
 # App setup
 app = FastAPI(title="Market Performance API", version="1.0.0")
