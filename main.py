@@ -1,30 +1,19 @@
-from fastapi import FastAPI, Query
-from typing import Optional
-import uvicorn
-from logic import load_data, predict_performance, assess_market_health
+from fastapi import FastAPI
+from fb_insights import router as fb_insights_router
+from geo_decay import router as geo_decay_router
+from predict import router as predict_router
+from market import router as market_router
 
-app = FastAPI(title="Market Performance Engine")
+app = FastAPI()
 
-# Load your data file from S3 or local source at startup
-df = load_data()
+# Register all routers
+app.include_router(fb_insights_router)
+app.include_router(geo_decay_router)
+app.include_router(predict_router)
+app.include_router(market_router)
 
-@app.get("/predict-performance")
-def get_prediction(
-    topic: str = Query(..., description="Seminar topic code (e.g., taxes_in_retirement_567)"),
-    city: str = Query(..., description="City name"),
-    state: str = Query(..., description="2-letter state abbreviation")
-):
-    return predict_performance(df, topic, city, state)
-
-@app.get("/market-health")
-def get_market_health(
-    topic: str = Query(..., description="Seminar topic code"),
-    city: str = Query(..., description="City name"),
-    state: str = Query(..., description="State abbreviation")
-):
-    return assess_market_health(df, topic, city, state)
-
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=10000, reload=True)
+@app.get("/")
+def root():
+    return {"message": "Welcome to the Marketing Performance API"}
 
 
