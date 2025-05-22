@@ -1,50 +1,52 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Geo Decay Curve</title>
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-</head>
-<body style="font-family: Arial, sans-serif; padding: 20px;">
-    <h2>📉 Geo Decay Curve: Impressions vs CPA by ZIP</h2>
-    <div id="plot" style="width: 100%; height: 600px;"></div>
+import sqlite3
+import json
+from fastapi import APIRouter
+from collections import defaultdict
 
-    <script>
-        async function fetchData() {
-            const res = await fetch("/geo-decay");
-            const result = await res.json();
-            return result.data || [];
-        }
+router = APIRouter()
+DB_FILE = "campaigns.db"
 
-        function renderPlot(data) {
-            const x = data.map(d => d.total_impressions);
-            const y = data.map(d => d.average_cpa);
-            const text = data.map(d => `ZIP: ${d.zip}<br>Events: ${d.event_count}`);
+@router.get("/geo-decay")
+def geo_decay():
+    conn = sqlite3.connect(DB_FILE)
+    cur = conn.cursor()
 
-            const trace = {
-                x: x,
-                y: y,
-                text: text,
-                mode: 'markers',
-                type: 'scatter',
-                marker: {
-                    size: data.map(d => Math.max(6, d.event_count * 3)),
-                    color: data.map(d => d.average_cpa),
-                    colorscale: 'Portland',
-                    showscale: true,
-                    colorbar: { title: "Avg CPA" }
-                }
-            };
+    cur.execute("SELECT job_number, geo_locations FROM targeting_data")
+    targeting_rows = cur.fetchall()
 
-            const layout = {
-                xaxis: { title: "Total Impressions" },
-                yaxis: { title: "Average CPA ($)" },
-                title: "Campaign Saturation vs Efficiency by ZIP"
-            };
+    geo_zip_map = defaultdict(list)
 
-            Plotly.newPlot("plot", [trace], layout);
-        }
+    for job_number, geo_json in targeting_rows:
+        try:
+            geo = json.loads(geo_json)
+            zips = geo.get("zips", [])
+            for zip_code in zips:
+                geo_zip_map[zip_code].append(job_number)
+        except Exception:
+            continue
 
-        fetchData().then(renderPlot);
-    </script>
-</body>
-</html>
+    import pandas as pd
+    df = pd.read_csv("https://acquireup-venue-data.s3.us-east-2.amazonaws.com/all_events_23_25.csv", encoding='utf-8')
+    df.columns = df.columns.str.lower().str.replace(" ", "_").str.replace(r"[^\w\s]", "", regex=True)
+
+    decay_data = []
+    for zip_code, jobs in geo_zip_map.items():
+        subset = df[df['job_number'].isin(jobs)]
+        if subset.empty:
+            continue
+
+        impressions = subset['fb_impressions'].sum()
+        avg_cpa = subset['cost_per_verified_hh'].mean()
+        events = len(subset)
+
+        decay_data.append({
+            "zip": zip_code,
+            "total_impressions": int(impressions),
+            "average_cpa": round(avg_cpa, 2),
+            "event_count": events
+        })
+
+    return {
+        "count": len(decay_data),
+        "data": decay_data
+    }
