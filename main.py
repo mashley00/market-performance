@@ -3,17 +3,15 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import pandas as pd
-from fuzzywuzzy import process
 import logging
+from fuzzywuzzy import process
 
 # Routers and DB
 from fb_insights import router as fb_router
-from campaign_db import init_db
 from fb_targeting import router as targeting_router
-app.include_router(targeting_router)
+from campaign_db import init_db
 
-
-# App setup
+# ✅ Create app FIRST before using it
 app = FastAPI(title="Market Performance API", version="1.0.0")
 
 # CORS middleware
@@ -24,18 +22,19 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# Serve static files (e.g., forms, dashboards)
+# Serve static files (optional)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Register routers
+# Include routers
 app.include_router(fb_router)
+app.include_router(targeting_router)
 
-# On startup, initialize local DB for campaign insights
+# Startup DB initialization
 @app.on_event("startup")
 def on_startup():
     init_db()
 
-# Load dataset
+# ✅ Load all_events CSV on startup
 try:
     df = pd.read_csv("https://acquireup-venue-data.s3.us-east-2.amazonaws.com/all_events_23_25.csv", encoding='utf-8')
     df.columns = df.columns.str.lower().str.replace(" ", "_").str.replace(r"[^\w\s]", "", regex=True)
@@ -46,7 +45,7 @@ except Exception as e:
     logging.error("❌ Failed to load dataset.")
     raise e
 
-# Market Health Endpoint
+# Market health endpoint
 @app.get("/market-health")
 def get_market_health(city: str, state: str, topic: str):
     city = city.lower().strip()
