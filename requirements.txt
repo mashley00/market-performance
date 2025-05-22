@@ -1,7 +1,8 @@
 fastapi
 uvicorn
 pandas
+numpy
+requests
 fuzzywuzzy[speedup]
 jinja2
-requests
 sqlalchemy
