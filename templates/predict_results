@@ -6,26 +6,28 @@
         body {
             font-family: Arial, sans-serif;
             margin: 40px;
-            background-color: #f7f7f7;
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            background: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            max-width: 700px;
+            margin: auto;
         }
 
         h1 {
             color: #333;
         }
 
-        .container {
-            background-color: #fff;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            max-width: 600px;
+        .results {
+            margin-top: 20px;
         }
 
-        .result {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #e9f7ef;
-            border-left: 5px solid #28a745;
+        .results p {
+            line-height: 1.8;
         }
 
         .label {
@@ -35,29 +37,29 @@
         a {
             display: inline-block;
             margin-top: 20px;
-            color: #007bff;
             text-decoration: none;
+            color: #007BFF;
         }
 
         a:hover {
             text-decoration: underline;
         }
+
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Prediction Results</h1>
-        <div class="result">
+        <div class="results">
             <p><span class="label">City:</span> {{ city }}</p>
             <p><span class="label">State:</span> {{ state }}</p>
             <p><span class="label">Topic:</span> {{ topic }}</p>
             <p><span class="label">Start Date:</span> {{ start_date }}</p>
             <p><span class="label">End Date:</span> {{ end_date }}</p>
-            <hr>
             <p><span class="label">Predicted CPR:</span> {{ cpr }}</p>
-            <p><span class="label">Predicted FB Registrants:</span> {{ registrants }}</p>
+            <p><span class="label">Estimated FB Registrants:</span> {{ registrants }}</p>
         </div>
-        <a href="/predict-form">⬅ Back to form</a>
+        <a href="/predict-form">← Back to Form</a>
     </div>
 </body>
 </html>
