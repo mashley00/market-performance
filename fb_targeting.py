@@ -1,77 +1,61 @@
-import os
 import json
 import logging
-from datetime import date
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 import requests
-
-from campaign_db import get_all_job_numbers, store_targeting_data
+from shared import load_insights
 
 router = APIRouter()
 
-ACCESS_TOKEN = os.getenv("FB_ACCESS_TOKEN")
-if not ACCESS_TOKEN:
-    raise ValueError("FB_ACCESS_TOKEN environment variable is not set.")
-
-GRAPH_API_VERSION = "v22.0"
-BASE_URL = "https://graph.facebook.com"
+ACCESS_TOKEN = "EAAQ7fq9y3V0BO66nsaF66pRaeQ71emyS4bT0EJbZAmghrANkWoCaNov68275ZCvnOYoDAbFDYZAMEZBLhdx86ATEfNVyxS19Tu5qZAdOqEpTAzIyvbheCeOPZBy7ZB2hJBcBGMXlEXiX3EobxPS8OG5pPjYfT8iJ5uEiNvbXIZCHkbuMFYp80gZDZD"
 
 @router.get("/fb-targeting")
-def get_targeting_data():
-    known_jobs = get_all_job_numbers()
-    matched_jobs = 0
-    targeting_results = []
+def get_fb_targeting():
+    try:
+        df = load_insights()
+        results = []
 
-    for job in known_jobs:
-        campaign_id = job.get("campaign_id")
-        job_number = job.get("job_number")
+        seen = set()
+        for _, row in df.iterrows():
+            job_number = row.get("job_number")
+            campaign_id = row.get("campaign_id")
 
-        if not campaign_id or not job_number:
-            continue
+            if not job_number or not isinstance(job_number, str):
+                continue
 
-        try:
-            adset_url = f"{BASE_URL}/{GRAPH_API_VERSION}/{campaign_id}/adsets"
-            response = requests.get(adset_url, params={
+            # Check for duplicate jobs
+            if job_number in seen:
+                continue
+            seen.add(job_number)
+
+            if not campaign_id or not campaign_id.isdigit():
+                continue
+
+            url = f"https://graph.facebook.com/v22.0/{campaign_id}/adsets"
+            params = {
                 "access_token": ACCESS_TOKEN,
                 "fields": "name,targeting"
-            })
-            response.raise_for_status()
-            adsets = response.json().get("data", [])
+            }
 
-            for adset in adsets:
-                targeting = adset.get("targeting", {})
-                geo = targeting.get("geo_locations", {})
-                age_min = targeting.get("age_min", 0)
-                age_max = targeting.get("age_max", 0)
-                gender = targeting.get("genders", [])
-                adset_id = adset.get("id")
+            try:
+                response = requests.get(url, params=params)
+                response.raise_for_status()
+                data = response.json()
 
-                store_targeting_data(
-                    job_number=job_number,
-                    campaign_id=campaign_id,
-                    adset_id=adset_id,
-                    geo_locations=geo,
-                    age_min=age_min,
-                    age_max=age_max,
-                    gender=",".join(map(str, gender)) if gender else None,
-                    last_synced=str(date.today())
-                )
+                for adset in data.get("data", []):
+                    targeting = adset.get("targeting", {})
+                    results.append({
+                        "job_number": job_number,
+                        "adset_name": adset.get("name"),
+                        "targeting": targeting
+                    })
 
-                targeting_results.append({
-                    "job_number": job_number,
-                    "campaign_id": campaign_id,
-                    "adset_id": adset_id,
-                    "geo": geo
-                })
+            except requests.exceptions.RequestException as e:
+                error_detail = e.response.text if hasattr(e, "response") and e.response else str(e)
+                logging.error(f"Facebook API targeting error for job {job_number}: {error_detail}")
+                continue
 
-                matched_jobs += 1
+        return {"fb_targeting": results}
 
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Facebook API targeting error for job {job_number}: {e}")
-            continue
-
-    return {
-        "message": "Targeting data sync complete",
-        "campaigns_matched": matched_jobs,
-        "entries": targeting_results
-    }
+    except Exception as e:
+        logging.exception("Internal server error in /fb-targeting")
+        return {"detail": "Internal Server Error"}
