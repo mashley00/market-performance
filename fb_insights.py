@@ -9,6 +9,7 @@ from campaign_db import get_all_job_numbers, update_campaign_targets
 
 router = APIRouter()
 
+# Load Facebook token
 ACCESS_TOKEN = os.getenv("FB_ACCESS_TOKEN")
 if not ACCESS_TOKEN:
     raise ValueError("FB_ACCESS_TOKEN environment variable is not set.")
@@ -58,8 +59,3 @@ def get_fb_insights():
     except requests.exceptions.RequestException as e:
         logging.error(f"Facebook API error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch FB data")
-
-    except Exception as e:
-        logging.error(f"Unhandled exception: {e}")
-        raise HTTPException(status_code=500, detail="Unknown error during FB insights fetch")
-
