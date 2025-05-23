@@ -1,35 +1,29 @@
-import sqlite3
-import json
 from fastapi import APIRouter
-from collections import defaultdict
+from shared import load_events_from_s3
 
 router = APIRouter()
-DB_FILE = "campaigns.db"
 
-@router.get("/geo-decay")
-def geo_decay():
-    conn = sqlite3.connect(DB_FILE)
-    cur = conn.cursor()
+@router.get("/market-health")
+def market_health(city: str, topic: str):
+    df = load_events_from_s3()
 
-    # Make sure your DB has this table and data
-    cur.execute("SELECT job_number, geo_locations FROM targeting_data")
-    targeting_rows = cur.fetchall()
+    filtered = df[
+        (df["city"].str.lower() == city.lower()) &
+        (df["seminar_topic"].str.upper() == topic.upper())
+    ]
 
-    geo_zip_map = defaultdict(list)
+    if filtered.empty:
+        return {"city": city, "topic": topic, "status": "No data found."}
 
-    for job_number, geo_json in targeting_rows:
-        try:
-            geo = json.loads(geo_json)
-            zips = geo.get("zips", [])
-            for zip_code in zips:
-                geo_zip_map[zip_code].append(job_number)
-        except Exception as e:
-            print(f"Failed to parse geo for job {job_number}: {e}")
+    avg_cpr = filtered["fb_cpr"].mean()
+    avg_fulfillment = (filtered["attended_hh"] / (filtered["registration_max"] / 2.4)).mean()
 
-    conn.close()
+    health_score = round((1 / avg_cpr * 0.5) + (avg_fulfillment * 0.5), 2)
 
     return {
-        "unique_zip_count": len(geo_zip_map),
-        "total_job_mappings": sum(len(jobs) for jobs in geo_zip_map.values()),
-        "example": dict(list(geo_zip_map.items())[:5])  # Show sample
+        "city": city,
+        "topic": topic,
+        "avg_cpr": round(avg_cpr, 2),
+        "avg_fulfillment": round(avg_fulfillment, 2),
+        "health_score": health_score
     }
