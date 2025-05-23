@@ -1,24 +1,41 @@
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-import requests
+from predict_performance import predict_performance  # your logic module
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
+
 @router.get("/predict-form", response_class=HTMLResponse)
-async def form_get(request: Request):
+async def get_form(request: Request):
     return templates.TemplateResponse("predict_form.html", {"request": request})
 
+
 @router.post("/predict-form", response_class=HTMLResponse)
-async def form_post(request: Request, topic: str = Form(...), city: str = Form(...), state: str = Form(...), start_date: str = Form(...), end_date: str = Form(...)):
-    payload = {
-        "topic": topic,
+async def submit_form(
+    request: Request,
+    city: str = Form(...),
+    state: str = Form(...),
+    topic: str = Form(...),
+    start_date: str = Form(...),
+    end_date: str = Form(...)
+):
+    # Clean inputs
+    topic = topic.upper().strip()
+    city = city.strip()
+    state = state.upper().strip()
+
+    # Call prediction function
+    results = predict_performance(city, state, topic, start_date, end_date)
+
+    # Render results in a basic HTML page
+    return templates.TemplateResponse("predict_result.html", {
+        "request": request,
         "city": city,
         "state": state,
+        "topic": topic,
         "start_date": start_date,
-        "end_date": end_date
-    }
-    response = requests.post("https://market-performance.onrender.com/predict-performance", json=payload)
-    result = response.json()
-    return templates.TemplateResponse("predict_form.html", {"request": request, "result": result})
+        "end_date": end_date,
+        "results": results
+    })
