@@ -1,3 +1,4 @@
+import pandas as pd
 import json
 import logging
 from fastapi import APIRouter
@@ -12,17 +13,16 @@ ACCESS_TOKEN = "EAAQ7fq9y3V0BO66nsaF66pRaeQ71emyS4bT0EJbZAmghrANkWoCaNov68275ZCv
 def get_fb_targeting():
     try:
         df = load_insights()
-        results = []
 
+        results = []
         seen = set()
+
         for _, row in df.iterrows():
             job_number = row.get("job_number")
             campaign_id = row.get("campaign_id")
 
             if not job_number or not isinstance(job_number, str):
                 continue
-
-            # Check for duplicate jobs
             if job_number in seen:
                 continue
             seen.add(job_number)
