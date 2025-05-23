@@ -4,12 +4,10 @@ from datetime import datetime
 
 DB_FILE = "campaigns.db"
 
-# Initialize both tables: campaign_targets and targeting_data
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
 
-    # Main campaign insights table
     cur.execute("""
         CREATE TABLE IF NOT EXISTS campaign_targets (
             campaign_id TEXT PRIMARY KEY,
@@ -20,7 +18,6 @@ def init_db():
         )
     """)
 
-    # New: targeting details from ad sets
     cur.execute("""
         CREATE TABLE IF NOT EXISTS targeting_data (
             job_number TEXT PRIMARY KEY,
@@ -37,7 +34,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-# Extract job number from campaign name
 def extract_job_number(campaign_name):
     parts = campaign_name.split()
     for part in parts:
@@ -45,10 +41,10 @@ def extract_job_number(campaign_name):
             return part
     return None
 
-# Update or insert campaign info
 def update_campaign_targets(fb_data, known_jobs):
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
+    matched = []
 
     for campaign in fb_data:
         name = campaign.get("campaign_name")
@@ -71,10 +67,18 @@ def update_campaign_targets(fb_data, known_jobs):
             VALUES (?, ?, ?, ?, ?)
         """, (campaign_id, name, job_number, city, state))
 
+        matched.append({
+            "campaign_id": campaign_id,
+            "campaign_name": name,
+            "job_number": job_number,
+            "city": city,
+            "state": state
+        })
+
     conn.commit()
     conn.close()
+    return matched
 
-# Get all known job numbers from the main campaign table
 def get_all_job_numbers():
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
@@ -89,10 +93,9 @@ def get_all_job_numbers():
             "city": row[2],
             "state": row[3]
         }
-        for row in rows if row[0]  # Only return entries with a job number
+        for row in rows if row[0]
     ]
 
-# Store targeting data per job
 def store_targeting_data(job_number, campaign_id, adset_id, geo_locations, age_min, age_max, gender, last_synced):
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
@@ -114,5 +117,4 @@ def store_targeting_data(job_number, campaign_id, adset_id, geo_locations, age_m
 
     conn.commit()
     conn.close()
-
 
