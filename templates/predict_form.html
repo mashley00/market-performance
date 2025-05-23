@@ -47,10 +47,13 @@
 </head>
 <body>
 <div class="container">
-    <h1>Predict Performance</h1>
+    <h1>Predict Campaign Performance</h1>
     <form method="post" action="/predict-form">
-        <label for="location">Location</label>
-        <input type="text" name="location" id="location" required>
+        <label for="city">City</label>
+        <input type="text" name="city" id="city" required>
+
+        <label for="state">State</label>
+        <input type="text" name="state" id="state" required>
 
         <label for="topic">Topic</label>
         <select name="topic" id="topic" required>
@@ -64,9 +67,6 @@
 
         <label for="end_date">End Date</label>
         <input type="date" name="end_date" id="end_date" required>
-
-        <label for="radius">Radius (miles)</label>
-        <input type="number" name="radius" id="radius" min="1" max="50" value="6" required>
 
         <button type="submit">Submit</button>
     </form>
