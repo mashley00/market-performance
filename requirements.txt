@@ -6,3 +6,5 @@ requests
 fuzzywuzzy[speedup]
 jinja2
 sqlalchemy
+boto3
+s3fs
