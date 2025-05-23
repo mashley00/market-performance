@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Prediction Results</title>
+</head>
+<body>
+    <h1>Prediction Results</h1>
+    <p><strong>City:</strong> {{ city }}</p>
+    <p><strong>State:</strong> {{ state }}</p>
+    <p><strong>Topic:</strong> {{ topic }}</p>
+    <p><strong>Date Range:</strong> {{ start_date }} to {{ end_date }}</p>
+
+    <h2>Result:</h2>
+    <pre>{{ results }}</pre>
+
+    <a href="/predict-form">🔙 Run another prediction</a>
+</body>
+</html>
