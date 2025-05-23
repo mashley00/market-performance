@@ -5,46 +5,35 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 40px;
-            background-color: #f4f4f4;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 2rem;
         }
-
         .container {
-            background: #fff;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.1);
             max-width: 700px;
             margin: auto;
+            padding: 2rem;
+            background-color: white;
+            box-shadow: 0 0 12px rgba(0,0,0,0.1);
+            border-radius: 8px;
         }
-
         h1 {
-            color: #333;
+            text-align: center;
+            color: #343a40;
         }
-
-        .results {
-            margin-top: 20px;
-        }
-
         .results p {
-            line-height: 1.8;
+            font-size: 1rem;
+            line-height: 1.6;
         }
-
         .label {
             font-weight: bold;
         }
-
         a {
             display: inline-block;
-            margin-top: 20px;
+            margin-top: 1.5rem;
             text-decoration: none;
-            color: #007BFF;
+            color: #007bff;
         }
-
-        a:hover {
-            text-decoration: underline;
-        }
-
     </style>
 </head>
 <body>
@@ -63,3 +52,4 @@
     </div>
 </body>
 </html>
+
