@@ -1,18 +1,16 @@
-from fastapi import APIRouter, Request, Form
+from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-import requests
-from datetime import datetime
 
-router = APIRouter()
+app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
-@router.get("/predict-form", response_class=HTMLResponse)
-def predict_form(request: Request):
+@app.get("/predict-form", response_class=HTMLResponse)
+async def show_form(request: Request):
     return templates.TemplateResponse("predict_form.html", {"request": request})
 
-@router.post("/predict-form", response_class=HTMLResponse)
-def predict_submit(
+@app.post("/predict-form", response_class=HTMLResponse)
+async def predict_submit(
     request: Request,
     city: str = Form(...),
     state: str = Form(...),
@@ -20,36 +18,18 @@ def predict_submit(
     start_date: str = Form(...),
     end_date: str = Form(...)
 ):
-    try:
-        # Call backend API
-        payload = {
-            "city": city,
-            "state": state,
-            "topic": topic.upper(),
-            "start_date": start_date,
-            "end_date": end_date
-        }
-        response = requests.post("https://market-performance.onrender.com/predict-performance", json=payload)
+    # Placeholder logic for prediction
+    predicted_cpr = 4.21
+    estimated_registrants = 38
 
-        if response.status_code == 200:
-            result = response.json()
-            return templates.TemplateResponse("predict_result.html", {
-                "request": request,
-                "city": city,
-                "state": state,
-                "topic": topic.upper(),
-                "start_date": start_date,
-                "end_date": end_date,
-                "result": result
-            })
-        else:
-            return templates.TemplateResponse("predict_result.html", {
-                "request": request,
-                "error": f"API call failed with status {response.status_code}",
-                "payload": payload
-            })
-    except Exception as e:
-        return templates.TemplateResponse("predict_result.html", {
-            "request": request,
-            "error": str(e)
-        })
+    return templates.TemplateResponse("predict_result.html", {
+        "request": request,
+        "city": city,
+        "state": state,
+        "topic": topic,
+        "start_date": start_date,
+        "end_date": end_date,
+        "predicted_cpr": predicted_cpr,
+        "estimated_registrants": estimated_registrants
+    })
+
