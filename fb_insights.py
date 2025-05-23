@@ -1,61 +1,18 @@
-import os
-import json
-import logging
-from datetime import date
-from fastapi import APIRouter, HTTPException
-import requests
-
-from campaign_db import get_all_job_numbers, update_campaign_targets
+from fastapi import APIRouter
+from shared import load_events_from_s3
 
 router = APIRouter()
 
-# Load Facebook token
-ACCESS_TOKEN = os.getenv("FB_ACCESS_TOKEN")
-if not ACCESS_TOKEN:
-    raise ValueError("FB_ACCESS_TOKEN environment variable is not set.")
-
-AD_ACCOUNT_ID = "act_177526423462639"
-GRAPH_API_VERSION = "v22.0"
-BASE_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{AD_ACCOUNT_ID}/insights"
-
-time_range = {
-    "since": "2025-01-01",
-    "until": str(date.today())
-}
-
-FIELDS = "campaign_name,campaign_id,impressions,reach,spend"
-LEVEL = "campaign"
-LIMIT = 500
-
 @router.get("/fb-insights")
-def get_fb_insights():
-    try:
-        response = requests.get(
-            BASE_URL,
-            params={
-                "access_token": ACCESS_TOKEN,
-                "fields": FIELDS,
-                "level": LEVEL,
-                "limit": LIMIT,
-                "time_range": json.dumps(time_range)
-            }
-        )
-        response.raise_for_status()
-        fb_data = response.json().get("data", [])
+def fb_insights_summary():
+    df = load_events_from_s3()
 
-        if not fb_data:
-            return {"fb_insights": []}
+    # Example aggregation: average CPR and total registrants per topic
+    summary = (
+        df.groupby("seminar_topic")
+        .agg(avg_cpr=("fb_cpr", "mean"), total_registrants=("gross_registrants", "sum"))
+        .reset_index()
+        .to_dict(orient="records")
+    )
+    return summary
 
-        known_jobs = get_all_job_numbers()
-        matched = update_campaign_targets(fb_data, known_jobs) or []
-
-        return {
-            "fb_insights": matched,
-            "total_campaigns": len(fb_data),
-            "matched": len(matched),
-            "unmatched": len(fb_data) - len(matched)
-        }
-
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Facebook API error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch FB data")
