@@ -21,35 +21,31 @@
             text-align: center;
             color: #343a40;
         }
-        .results p {
-            font-size: 1rem;
-            line-height: 1.6;
-        }
         .label {
             font-weight: bold;
         }
-        a {
+        .back {
             display: inline-block;
-            margin-top: 1.5rem;
-            text-decoration: none;
+            margin-top: 2rem;
             color: #007bff;
+            text-decoration: none;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Prediction Results</h1>
-        <div class="results">
-            <p><span class="label">City:</span> {{ city }}</p>
-            <p><span class="label">State:</span> {{ state }}</p>
-            <p><span class="label">Topic:</span> {{ topic }}</p>
-            <p><span class="label">Start Date:</span> {{ start_date }}</p>
-            <p><span class="label">End Date:</span> {{ end_date }}</p>
-            <p><span class="label">Predicted CPR:</span> {{ cpr }}</p>
-            <p><span class="label">Estimated FB Registrants:</span> {{ registrants }}</p>
-        </div>
-        <a href="/predict-form">← Back to Form</a>
-    </div>
+<div class="container">
+    <h1>Prediction Results</h1>
+
+    <p><span class="label">City:</span> {{ city }}</p>
+    <p><span class="label">State:</span> {{ state }}</p>
+    <p><span class="label">Topic:</span> {{ topic }}</p>
+    <p><span class="label">Start Date:</span> {{ start_date }}</p>
+    <p><span class="label">End Date:</span> {{ end_date }}</p>
+    <p><span class="label">Predicted CPR:</span> {{ predicted_cpr }}</p>
+    <p><span class="label">Estimated FB Registrants:</span> {{ estimated_registrants }}</p>
+
+    <a class="back" href="/predict-form">&larr; Back to Form</a>
+</div>
 </body>
 </html>
 
