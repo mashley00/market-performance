@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Predict Performance</title>
+</head>
+<body>
+    <h1>Predict Market Performance</h1>
+    <form method="post">
+        <label>Topic:</label>
+        <input name="topic" type="text" placeholder="e.g., TIR" required><br><br>
+        
+        <label>City:</label>
+        <input name="city" type="text" required><br><br>
+        
+        <label>State:</label>
+        <input name="state" type="text" required><br><br>
+        
+        <label>Start Date (YYYY-MM-DD):</label>
+        <input name="start_date" type="text" required><br><br>
+        
+        <label>End Date (YYYY-MM-DD):</label>
+        <input name="end_date" type="text" required><br><br>
+        
+        <button type="submit">Predict</button>
+    </form>
+
+    {% if result %}
+        <h2>Results:</h2>
+        <pre>{{ result | tojson(indent=2) }}</pre>
+    {% endif %}
+</body>
+</html>
