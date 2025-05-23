@@ -1,98 +1,77 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
-    <title>Predict Performance</title>
+    <title>Performance Prediction Form</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 40px;
-            background-color: #f7f7f7;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 2rem;
         }
-
+        .container {
+            max-width: 600px;
+            margin: auto;
+            padding: 2rem;
+            background-color: white;
+            box-shadow: 0 0 12px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
         h1 {
-            color: #333;
+            text-align: center;
+            color: #343a40;
         }
-
-        form {
-            background-color: #fff;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
-            max-width: 500px;
-        }
-
         label {
             display: block;
-            margin-top: 15px;
+            margin-top: 1rem;
             font-weight: bold;
-            margin-bottom: 5px;
         }
-
-        input[type="text"],
-        input[type="date"] {
+        input, select {
             width: 100%;
-            padding: 10px;
-            font-size: 14px;
-            margin-bottom: 10px;
+            padding: 0.5rem;
+            margin-top: 0.3rem;
             border: 1px solid #ccc;
             border-radius: 4px;
         }
-
-        input[type="submit"] {
+        button {
+            margin-top: 1.5rem;
+            padding: 0.75rem;
+            width: 100%;
             background-color: #007bff;
             color: white;
             border: none;
-            padding: 10px 15px;
-            font-size: 14px;
             border-radius: 4px;
+            font-size: 1rem;
             cursor: pointer;
-            margin-top: 10px;
         }
-
-        input[type="submit"]:hover {
+        button:hover {
             background-color: #0056b3;
         }
-
-        .note {
-            font-size: 12px;
-            color: #777;
-        }
     </style>
-    <script>
-        function autoFillEndDate() {
-            const startDateInput = document.getElementById("start_date");
-            const endDateInput = document.getElementById("end_date");
-
-            const startDate = new Date(startDateInput.value);
-            if (!isNaN(startDate)) {
-                startDate.setDate(startDate.getDate() + 14);
-                const yyyy = startDate.getFullYear();
-                const mm = String(startDate.getMonth() + 1).padStart(2, '0');
-                const dd = String(startDate.getDate()).padStart(2, '0');
-                endDateInput.value = `${yyyy}-${mm}-${dd}`;
-            }
-        }
-    </script>
 </head>
 <body>
-    <h1>Predict Performance</h1>
-    <form action="/predict-form" method="post">
-        <label for="city">City:</label>
-        <input type="text" id="city" name="city" required>
+<div class="container">
+    <h1>Predict Campaign Performance</h1>
+    <form method="post" action="/predict-form">
+        <label for="campaign_name">Campaign Name</label>
+        <input type="text" id="campaign_name" name="campaign_name" required>
 
-        <label for="state">State:</label>
-        <input type="text" id="state" name="state" required>
+        <label for="start_date">Start Date</label>
+        <input type="date" id="start_date" name="start_date" required>
 
-        <label for="topic">Topic (TIR, EP, or SS):</label>
-        <input type="text" id="topic" name="topic" required>
+        <label for="end_date">End Date</label>
+        <input type="date" id="end_date" name="end_date" required>
 
-        <label for="start_date">Start Date (YYYY-MM-DD):</label>
-        <input type="date" id="start_date" name="start_date" required onchange="autoFillEndDate()">
+        <label for="channel">Channel</label>
+        <select id="channel" name="channel" required>
+            <option value="Facebook">Facebook</option>
+            <option value="Google">Google</option>
+            <option value="LinkedIn">LinkedIn</option>
+        </select>
 
-        <label for="end_date">End Date (Auto-filled, 14 days later):</label>
-        <input type="date" id="end_date" name="end_date" readonly required>
-
-        <input type="submit" value="Predict">
+        <button type="submit">Submit</button>
     </form>
+</div>
 </body>
 </html>
+
