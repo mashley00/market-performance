@@ -5,26 +5,28 @@ from fastapi.staticfiles import StaticFiles
 from fb_insights import router as fb_insights_router
 from fb_targeting import router as fb_targeting_router
 from geo_decay import router as geo_decay_router
+from predict_performance import router as predict_performance_router
 
-# Shared S3 loader
-from shared import load_events_from_s3
+# DB initializer
+from campaign_db import init_db
 
 # ✅ MUST exist for Render/Uvicorn
 app = FastAPI()
 
-# Attach routers
+# Ensure database is initialized on boot
+init_db()
+
+# Attach API routers
 app.include_router(fb_insights_router)
 app.include_router(fb_targeting_router)
 app.include_router(geo_decay_router)
+app.include_router(predict_performance_router)
 
-# Static files if needed
+# Optional: Static file mounting if you add frontend
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Health check route
 @app.get("/")
 def health_check():
     return {"message": "✅ Market Performance API is running"}
 
-@app.get("/debug-s3")
-def debug_s3():
-    df = load_events_from_s3()
-    return df.head(5).to_dict(orient="records")
