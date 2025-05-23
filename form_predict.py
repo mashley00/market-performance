@@ -1,19 +1,18 @@
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from predict_performance import predict_performance  # your logic module
+import requests
+from datetime import datetime
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
-
 @router.get("/predict-form", response_class=HTMLResponse)
-async def get_form(request: Request):
+def predict_form(request: Request):
     return templates.TemplateResponse("predict_form.html", {"request": request})
 
-
 @router.post("/predict-form", response_class=HTMLResponse)
-async def submit_form(
+def predict_submit(
     request: Request,
     city: str = Form(...),
     state: str = Form(...),
@@ -21,21 +20,36 @@ async def submit_form(
     start_date: str = Form(...),
     end_date: str = Form(...)
 ):
-    # Clean inputs
-    topic = topic.upper().strip()
-    city = city.strip()
-    state = state.upper().strip()
+    try:
+        # Call backend API
+        payload = {
+            "city": city,
+            "state": state,
+            "topic": topic.upper(),
+            "start_date": start_date,
+            "end_date": end_date
+        }
+        response = requests.post("https://market-performance.onrender.com/predict-performance", json=payload)
 
-    # Call prediction function
-    results = predict_performance(city, state, topic, start_date, end_date)
-
-    # Render results in a basic HTML page
-    return templates.TemplateResponse("predict_result.html", {
-        "request": request,
-        "city": city,
-        "state": state,
-        "topic": topic,
-        "start_date": start_date,
-        "end_date": end_date,
-        "results": results
-    })
+        if response.status_code == 200:
+            result = response.json()
+            return templates.TemplateResponse("predict_result.html", {
+                "request": request,
+                "city": city,
+                "state": state,
+                "topic": topic.upper(),
+                "start_date": start_date,
+                "end_date": end_date,
+                "result": result
+            })
+        else:
+            return templates.TemplateResponse("predict_result.html", {
+                "request": request,
+                "error": f"API call failed with status {response.status_code}",
+                "payload": payload
+            })
+    except Exception as e:
+        return templates.TemplateResponse("predict_result.html", {
+            "request": request,
+            "error": str(e)
+        })
