@@ -6,24 +6,25 @@ from fb_insights import router as fb_insights_router
 from fb_targeting import router as fb_targeting_router
 from geo_decay import router as geo_decay_router
 
-# DB initializer
-from campaign_db import init_db
+# Shared S3 loader
+from shared import load_events_from_s3
 
 # ✅ MUST exist for Render/Uvicorn
 app = FastAPI()
 
-# Ensure database is initialized on boot
-init_db()
-
-# Attach API routers
+# Attach routers
 app.include_router(fb_insights_router)
 app.include_router(fb_targeting_router)
 app.include_router(geo_decay_router)
 
-# Optional: Static file mounting if you add frontend
+# Static files if needed
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Health check route
 @app.get("/")
 def health_check():
     return {"message": "✅ Market Performance API is running"}
+
+@app.get("/debug-s3")
+def debug_s3():
+    df = load_events_from_s3()
+    return df.head(5).to_dict(orient="records")
