@@ -4,18 +4,19 @@
     <title>Predict Performance</title>
     <script>
         function setEndDate() {
-            const startInput = document.getElementById("start_date");
-            const endInput = document.getElementById("end_date");
+            const startDateInput = document.getElementById('start_date');
+            const endDateInput = document.getElementById('end_date');
 
-            if (startInput.value) {
-                const startDate = new Date(startInput.value);
+            const startDate = new Date(startDateInput.value);
+            if (!isNaN(startDate)) {
                 const endDate = new Date(startDate);
-                endDate.setDate(startDate.getDate() + 14);
+                endDate.setDate(endDate.getDate() + 14);
 
-                const yyyy = endDate.getFullYear();
-                const mm = String(endDate.getMonth() + 1).padStart(2, '0');
-                const dd = String(endDate.getDate()).padStart(2, '0');
-                endInput.value = `${yyyy}-${mm}-${dd}`;
+                const year = endDate.getFullYear();
+                const month = String(endDate.getMonth() + 1).padStart(2, '0');
+                const day = String(endDate.getDate()).padStart(2, '0');
+
+                endDateInput.value = `${year}-${month}-${day}`;
             }
         }
     </script>
@@ -33,7 +34,7 @@
         <input type="text" id="topic" name="topic" required><br><br>
 
         <label for="start_date">Start Date (YYYY-MM-DD):</label><br>
-        <input type="date" id="start_date" name="start_date" onchange="setEndDate()" required><br><br>
+        <input type="date" id="start_date" name="start_date" required onchange="setEndDate()"><br><br>
 
         <label for="end_date">End Date (Auto-filled, 14 days later):</label><br>
         <input type="date" id="end_date" name="end_date" readonly required><br><br>
@@ -42,5 +43,3 @@
     </form>
 </body>
 </html>
-
-
