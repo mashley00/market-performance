@@ -1,21 +1,25 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Predict Performance</title>
+    <title>Predict Campaign Performance</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-color: #f0f2f5;
+            background-color: #f8f9fa;
             margin: 0;
             padding: 2rem;
         }
         .container {
-            max-width: 600px;
+            max-width: 700px;
             margin: auto;
             padding: 2rem;
-            background: white;
+            background-color: white;
+            box-shadow: 0 0 12px rgba(0,0,0,0.1);
             border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #343a40;
         }
         label {
             font-weight: bold;
@@ -24,24 +28,20 @@
         }
         input, select {
             width: 100%;
-            padding: 0.6rem;
-            margin-top: 0.2rem;
-            border-radius: 4px;
+            padding: 0.5rem;
+            margin-top: 0.25rem;
             border: 1px solid #ccc;
+            border-radius: 4px;
         }
         button {
             margin-top: 1.5rem;
             width: 100%;
-            padding: 0.8rem;
-            font-size: 1rem;
+            padding: 0.75rem;
             background-color: #007bff;
             color: white;
             border: none;
             border-radius: 4px;
-        }
-        h1 {
-            text-align: center;
-            color: #333;
+            font-size: 1rem;
         }
     </style>
 </head>
@@ -50,27 +50,28 @@
     <h1>Predict Campaign Performance</h1>
     <form method="post" action="/predict-form">
         <label for="city">City</label>
-        <input type="text" name="city" id="city" required>
+        <input type="text" id="city" name="city" required>
 
         <label for="state">State</label>
-        <input type="text" name="state" id="state" required>
+        <input type="text" id="state" name="state" required>
 
         <label for="topic">Topic</label>
-        <select name="topic" id="topic" required>
+        <select id="topic" name="topic">
             <option value="TIR">Taxes in Retirement</option>
             <option value="EP">Estate Planning</option>
             <option value="SS">Social Security</option>
         </select>
 
         <label for="start_date">Start Date</label>
-        <input type="date" name="start_date" id="start_date" required>
+        <input type="date" id="start_date" name="start_date" required>
 
         <label for="end_date">End Date</label>
-        <input type="date" name="end_date" id="end_date" required>
+        <input type="date" id="end_date" name="end_date" required>
 
         <button type="submit">Submit</button>
     </form>
 </div>
 </body>
 </html>
+
 
