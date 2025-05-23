@@ -2,17 +2,44 @@
 <html>
 <head>
     <title>Prediction Results</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        .result-box {
+            background-color: #f5f5f5;
+            border: 1px solid #ccc;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 8px;
+        }
+        .label {
+            font-weight: bold;
+        }
+        .back-link {
+            margin-top: 20px;
+            display: inline-block;
+        }
+    </style>
 </head>
 <body>
+
     <h1>Prediction Results</h1>
-    <p><strong>City:</strong> {{ city }}</p>
-    <p><strong>State:</strong> {{ state }}</p>
-    <p><strong>Topic:</strong> {{ topic }}</p>
-    <p><strong>Date Range:</strong> {{ start_date }} to {{ end_date }}</p>
 
-    <h2>Result:</h2>
-    <pre>{{ results }}</pre>
+    <div class="result-box">
+        <p><span class="label">City:</span> {{ city }}</p>
+        <p><span class="label">State:</span> {{ state }}</p>
+        <p><span class="label">Topic:</span> {{ topic }}</p>
+        <p><span class="label">Date Range:</span> {{ start_date }} to {{ end_date }}</p>
+        <p><span class="label">Predicted Cost Per Registrant (CPR):</span> ${{ predicted_cpr }}</p>
+        <p><span class="label">Estimated Facebook Registrants:</span> {{ predicted_regs }}</p>
+    </div>
 
-    <a href="/predict-form">🔙 Run another prediction</a>
+    <a href="/predict-form" class="back-link">🔙 Back to Prediction Form</a>
+
 </body>
 </html>
