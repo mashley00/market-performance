@@ -1,29 +1,28 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Predict Performance</title>
+    <title>Predict Market Performance</title>
 </head>
 <body>
-    <h1>Predict Performance</h1>
-    <form action="/predict-form" method="post">
+    <h1>Market Performance Predictor</h1>
+    <form method="post" action="/predict-form">
         <label for="city">City:</label><br>
         <input type="text" id="city" name="city" required><br><br>
 
-        <label for="topic">Topic (TIR, EP, or SS):</label><br>
-        <input type="text" id="topic" name="topic" required><br><br>
+        <label for="state">State:</label><br>
+        <input type="text" id="state" name="state" required><br><br>
 
-        <label for="start_date">Start Date (YYYY-MM-DD):</label><br>
-        <input type="date" id="start_date" name="start_date" required><br><br>
+        <label for="topic">Topic:</label><br>
+        <select id="topic" name="topic" required>
+            <option value="TIR">Taxes in Retirement</option>
+            <option value="EP">Estate Planning</option>
+            <option value="SS">Social Security</option>
+        </select><br><br>
 
-        <label for="end_date">End Date (YYYY-MM-DD):</label><br>
-        <input type="date" id="end_date" name="end_date" required><br><br>
+        <label for="date_range">Date Range (YYYY-MM-DD to YYYY-MM-DD):</label><br>
+        <input type="text" id="date_range" name="date_range" required><br><br>
 
-        <input type="submit" value="Predict">
+        <button type="submit">Predict</button>
     </form>
-
-    {% if result %}
-        <h2>Prediction Result</h2>
-        <pre>{{ result | tojson(indent=2) }}</pre>
-    {% endif %}
 </body>
 </html>
