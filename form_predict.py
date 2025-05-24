@@ -7,7 +7,7 @@ import os
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
-# Load the dataset (static CSV for now)
+# Load and normalize dataset
 CSV_URL = "https://acquireup-venue-data.s3.us-east-2.amazonaws.com/all_events_23_25.csv"
 df = pd.read_csv(CSV_URL, encoding='utf-8')
 df.columns = df.columns.str.lower().str.replace(" ", "_").str.replace(r"[^\w\s]", "", regex=True)
@@ -25,11 +25,26 @@ async def predict_submit(
     start_date: str = Form(...),
     end_date: str = Form(...)
 ):
-    # Filter based on user inputs
+    # Validate column name exists
+    if 'topic' not in df.columns:
+        return templates.TemplateResponse("predict_result.html", {
+            "request": request,
+            "city": city,
+            "state": state,
+            "topic": topic,
+            "start_date": start_date,
+            "end_date": end_date,
+            "predicted_cpr": "N/A",
+            "estimated_registrants": "N/A",
+            "no_data": True,
+            "error": "Column 'topic' not found in dataset."
+        })
+
+    # Filter data
     filtered_df = df[
         (df['city'].str.lower() == city.lower()) &
         (df['state'].str.lower() == state.lower()) &
-        (df['seminar_topic'] == topic)
+        (df['topic'] == topic)
     ]
 
     if filtered_df.empty:
@@ -40,10 +55,12 @@ async def predict_submit(
             "topic": topic,
             "start_date": start_date,
             "end_date": end_date,
-            "no_data": True  # <-- Trigger fallback
+            "predicted_cpr": "N/A",
+            "estimated_registrants": "N/A",
+            "no_data": True
         })
 
-    # Example calculation (replace with your actual logic)
+    # Perform calculation
     avg_cpr = filtered_df['fb_cpr'].mean()
     estimated_registrants = (filtered_df['fb_registrants'] / filtered_df['fb_days']).mean() * 14
 
@@ -58,5 +75,4 @@ async def predict_submit(
         "estimated_registrants": f"{estimated_registrants:.0f}",
         "no_data": False
     })
-
 
