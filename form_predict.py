@@ -1,15 +1,15 @@
-from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Request, Form
 from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
 
-app = FastAPI()
+router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
-@app.get("/predict-form", response_class=HTMLResponse)
+@router.get("/predict-form", response_class=HTMLResponse)
 async def show_form(request: Request):
     return templates.TemplateResponse("predict_form.html", {"request": request})
 
-@app.post("/predict-form", response_class=HTMLResponse)
+@router.post("/predict-form", response_class=HTMLResponse)
 async def predict_submit(
     request: Request,
     city: str = Form(...),
@@ -18,7 +18,7 @@ async def predict_submit(
     start_date: str = Form(...),
     end_date: str = Form(...)
 ):
-    # Placeholder logic for prediction
+    # Replace with real model logic
     predicted_cpr = 4.21
     estimated_registrants = 38
 
@@ -32,4 +32,3 @@ async def predict_submit(
         "predicted_cpr": predicted_cpr,
         "estimated_registrants": estimated_registrants
     })
-
