@@ -1,17 +1,9 @@
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from datetime import datetime, timedelta
-import pandas as pd
 
-# Initialize the router
-router = APIRouter()
-
-# Templates directory
+router = APIRouter()  # <-- This is what `main.py` is trying to import
 templates = Jinja2Templates(directory="templates")
-
-# Dataset loading (adjust path as needed)
-DATA_FILE = "all_events_23_25.csv"
 
 @router.get("/predict-form", response_class=HTMLResponse)
 async def predict_form(request: Request):
@@ -26,40 +18,21 @@ async def predict_submit(
     start_date: str = Form(...)
 ):
     try:
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-        end_dt = start_dt + timedelta(days=14)
-
-        # Load CSV
-        df = pd.read_csv(DATA_FILE)
-
-        # Basic filtering logic (update as needed)
-        filtered_df = df[
-            (df["seminar_topic_code"] == topic)
-            & (df["city"].str.lower() == city.lower())
-            & (df["state"].str.lower() == state.lower())
-        ]
-
-        if filtered_df.empty:
-            return templates.TemplateResponse("predict_result.html", {
-                "request": request,
-                "error": "No data found for this combination.",
-                "results": None
-            })
-
-        avg_registrants = filtered_df["gross_registrants"].mean()
-
-        return templates.TemplateResponse("predict_result.html", {
-            "request": request,
-            "results": round(avg_registrants, 2),
+        # Replace with your actual processing logic
+        results = {
             "topic": topic,
             "city": city,
             "state": state,
             "start_date": start_date,
-            "end_date": end_dt.strftime("%Y-%m-%d")
+            "end_date": "calculated in backend"
+        }
+        return templates.TemplateResponse("predict_result.html", {
+            "request": request,
+            "results": results
         })
     except Exception as e:
         return templates.TemplateResponse("predict_result.html", {
             "request": request,
-            "error": str(e),
-            "results": None
+            "results": {"error": str(e)}
         })
+
