@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, Form
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-router = APIRouter()  # <-- This is what `main.py` is trying to import
+router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
 @router.get("/predict-form", response_class=HTMLResponse)
@@ -12,27 +12,28 @@ async def predict_form(request: Request):
 @router.post("/predict-form", response_class=HTMLResponse)
 async def predict_submit(
     request: Request,
-    topic: str = Form(...),
     city: str = Form(...),
     state: str = Form(...),
-    start_date: str = Form(...)
+    topic: str = Form(...),
+    start_date: str = Form(...),
+    end_date: str = Form(...)
 ):
-    try:
-        # Replace with your actual processing logic
-        results = {
-            "topic": topic,
-            "city": city,
-            "state": state,
-            "start_date": start_date,
-            "end_date": "calculated in backend"
-        }
-        return templates.TemplateResponse("predict_result.html", {
-            "request": request,
-            "results": results
-        })
-    except Exception as e:
-        return templates.TemplateResponse("predict_result.html", {
-            "request": request,
-            "results": {"error": str(e)}
-        })
+    # Stub logic – replace with your actual prediction logic later
+    predicted_cpr = "$10.25"
+    estimated_registrants = 34
+
+    results = {
+        "city": city,
+        "state": state,
+        "topic": topic,
+        "start_date": start_date,
+        "end_date": end_date,
+        "predicted_cpr": predicted_cpr,
+        "estimated_registrants": estimated_registrants,
+    }
+
+    return templates.TemplateResponse("predict_result.html", {
+        "request": request,
+        "results": results
+    })
 
