@@ -7,10 +7,17 @@ import os
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
-# Load and normalize dataset
+# Load dataset
 CSV_URL = "https://acquireup-venue-data.s3.us-east-2.amazonaws.com/all_events_23_25.csv"
 df = pd.read_csv(CSV_URL, encoding='utf-8')
 df.columns = df.columns.str.lower().str.replace(" ", "_").str.replace(r"[^\w\s]", "", regex=True)
+
+# Map UI dropdown label to internal topic code
+topic_map = {
+    "Taxes in Retirement (TIR)": "TIR",
+    "Estate Planning (EP)": "EP",
+    "Social Security (SS)": "SS"
+}
 
 @router.get("/predict-form", response_class=HTMLResponse)
 async def show_form(request: Request):
@@ -25,8 +32,9 @@ async def predict_submit(
     start_date: str = Form(...),
     end_date: str = Form(...)
 ):
-    # Validate column name exists
-    if 'topic' not in df.columns:
+    # Convert to expected topic code
+    normalized_topic = topic_map.get(topic)
+    if not normalized_topic:
         return templates.TemplateResponse("predict_result.html", {
             "request": request,
             "city": city,
@@ -34,17 +42,14 @@ async def predict_submit(
             "topic": topic,
             "start_date": start_date,
             "end_date": end_date,
-            "predicted_cpr": "N/A",
-            "estimated_registrants": "N/A",
-            "no_data": True,
-            "error": "Column 'topic' not found in dataset."
+            "no_data": True
         })
 
-    # Filter data
+    # Filter historical data only by location and topic
     filtered_df = df[
         (df['city'].str.lower() == city.lower()) &
         (df['state'].str.lower() == state.lower()) &
-        (df['topic'] == topic)
+        (df['seminar_topic'] == normalized_topic)
     ]
 
     if filtered_df.empty:
@@ -55,12 +60,10 @@ async def predict_submit(
             "topic": topic,
             "start_date": start_date,
             "end_date": end_date,
-            "predicted_cpr": "N/A",
-            "estimated_registrants": "N/A",
             "no_data": True
         })
 
-    # Perform calculation
+    # Compute averages
     avg_cpr = filtered_df['fb_cpr'].mean()
     estimated_registrants = (filtered_df['fb_registrants'] / filtered_df['fb_days']).mean() * 14
 
