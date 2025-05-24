@@ -1,51 +1,20 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Prediction Results</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f8f9fa;
-            margin: 0;
-            padding: 2rem;
-        }
-        .container {
-            max-width: 700px;
-            margin: auto;
-            padding: 2rem;
-            background-color: white;
-            box-shadow: 0 0 12px rgba(0,0,0,0.1);
-            border-radius: 8px;
-        }
-        h1 {
-            text-align: center;
-            color: #343a40;
-        }
-        .label {
-            font-weight: bold;
-        }
-        .back {
-            display: inline-block;
-            margin-top: 2rem;
-            color: #007bff;
-            text-decoration: none;
-        }
-    </style>
-</head>
-<body>
 <div class="container">
     <h1>Prediction Results</h1>
 
-    <p><span class="label">City:</span> {{ city }}</p>
-    <p><span class="label">State:</span> {{ state }}</p>
-    <p><span class="label">Topic:</span> {{ topic }}</p>
-    <p><span class="label">Start Date:</span> {{ start_date }}</p>
-    <p><span class="label">End Date:</span> {{ end_date }}</p>
-    <p><span class="label">Predicted CPR:</span> {{ predicted_cpr }}</p>
-    <p><span class="label">Estimated FB Registrants:</span> {{ estimated_registrants }}</p>
+    {% if no_data %}
+        <p>⚠️ No prediction results found for the selected city, state, and topic.</p>
+        <p>Please try a broader market or different combination.</p>
+    {% else %}
+        <p><span class="label">City:</span> {{ city }}</p>
+        <p><span class="label">State:</span> {{ state }}</p>
+        <p><span class="label">Topic:</span> {{ topic }}</p>
+        <p><span class="label">Start Date:</span> {{ start_date }}</p>
+        <p><span class="label">End Date:</span> {{ end_date }}</p>
+        <p><span class="label">Predicted CPR:</span> {{ predicted_cpr }}</p>
+        <p><span class="label">Estimated FB Registrants:</span> {{ estimated_registrants }}</p>
+    {% endif %}
 
     <a class="back" href="/predict-form">&larr; Back to Form</a>
 </div>
-</body>
-</html>
+
 
